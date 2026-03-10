@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -21,6 +22,9 @@ const (
 	methodSubmitResults = "/ioswarm.IOSwarm/SubmitResults"
 	methodHeartbeat     = "/ioswarm.IOSwarm/Heartbeat"
 )
+
+// tasksProcessed tracks the total number of tasks processed by this agent.
+var tasksProcessed atomic.Uint32
 
 func main() {
 	coordinator := flag.String("coordinator", "127.0.0.1:14689", "coordinator gRPC address")
@@ -128,7 +132,10 @@ func heartbeatLoop(ctx context.Context, conn *grpc.ClientConn, agentID string, l
 			return
 		case <-ticker.C:
 			hbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			req := &heartbeatRequest{AgentID: agentID}
+			req := &heartbeatRequest{
+				AgentID:        agentID,
+				TasksProcessed: tasksProcessed.Load(),
+			}
 			resp := &heartbeatResponse{}
 			if err := conn.Invoke(hbCtx, methodHeartbeat, req, resp); err != nil {
 				logger.Warn("heartbeat failed", zap.Error(err))
@@ -197,6 +204,7 @@ func processBatch(batch *taskBatch, level string) []*taskResult {
 	for _, task := range batch.Tasks {
 		results = append(results, validateTask(task, level))
 	}
+	tasksProcessed.Add(uint32(len(results)))
 	return results
 }
 

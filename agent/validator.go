@@ -1,12 +1,15 @@
 package main
 
 import (
-	"crypto/elliptic"
 	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
 )
+
+// secp256k1N is the order of the secp256k1 elliptic curve used by IoTeX/Ethereum.
+// This is a well-known constant: 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+var secp256k1N, _ = new(big.Int).SetString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16)
 
 // ValidationResult holds the outcome of a task validation.
 type ValidationResult struct {
@@ -63,7 +66,7 @@ func validateTask(task *taskPackage, level string) *taskResult {
 // Checks:
 //   - Length >= 65
 //   - r, s are non-zero
-//   - r, s are within (0, curve.N) for P-256
+//   - r, s are within (0, curve.N) for secp256k1
 func validateL1(task *taskPackage) ValidationResult {
 	raw := task.TxRaw
 
@@ -99,9 +102,8 @@ func validateL1(task *taskPackage) ValidationResult {
 		}
 	}
 
-	// Check r, s ∈ (0, curve.N)
-	curve := elliptic.P256()
-	n := curve.Params().N
+	// Check r, s ∈ (0, curve.N) using secp256k1 (IoTeX's signature curve)
+	n := secp256k1N
 
 	if r.Cmp(n) >= 0 {
 		return ValidationResult{
@@ -128,7 +130,7 @@ func validateL1(task *taskPackage) ValidationResult {
 //
 // Checks (after L1):
 //   - Sender balance > 0
-//   - Tx nonce > sender account nonce (replay protection)
+//   - Tx nonce >= sender account nonce (replay protection)
 //   - Receiver presence (nil = contract deploy, allowed)
 //   - Gas estimate: 21000 for transfer, 100000 if receiver has CodeHash
 func validateL2(task *taskPackage) ValidationResult {
@@ -166,7 +168,7 @@ func validateL2(task *taskPackage) ValidationResult {
 
 	// Extract tx nonce from first 8 bytes of payload
 	txNonce := extractTxNonce(task.TxRaw)
-	if txNonce <= task.Sender.Nonce {
+	if txNonce < task.Sender.Nonce {
 		return ValidationResult{
 			Valid:        false,
 			RejectReason: fmt.Sprintf("nonce too low: tx=%d account=%d", txNonce, task.Sender.Nonce),

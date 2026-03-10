@@ -1,14 +1,17 @@
 package main
 
 import (
-	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/binary"
 	"math/big"
 	"testing"
 )
 
-// buildValidTxRaw creates a TxRaw with valid P-256 signature components.
+// testCurveN is secp256k1 curve order for generating valid mock signatures.
+// Must match secp256k1N in validator.go.
+var testCurveN = secp256k1N
+
+// buildValidTxRaw creates a TxRaw with valid secp256k1 signature components.
 // Nonce is encoded in the first 8 bytes of payload.
 func buildValidTxRaw(nonce uint64) []byte {
 	payload := make([]byte, 80)
@@ -16,15 +19,14 @@ func buildValidTxRaw(nonce uint64) []byte {
 	// fill rest with random
 	rand.Read(payload[8:])
 
-	curve := elliptic.P256()
-	r, _ := rand.Int(rand.Reader, curve.Params().N)
-	s, _ := rand.Int(rand.Reader, curve.Params().N)
+	r, _ := rand.Int(rand.Reader, testCurveN)
+	s, _ := rand.Int(rand.Reader, testCurveN)
 	// Ensure non-zero (extremely unlikely but be safe)
 	for r.Sign() == 0 {
-		r, _ = rand.Int(rand.Reader, curve.Params().N)
+		r, _ = rand.Int(rand.Reader, testCurveN)
 	}
 	for s.Sign() == 0 {
-		s, _ = rand.Int(rand.Reader, curve.Params().N)
+		s, _ = rand.Int(rand.Reader, testCurveN)
 	}
 
 	raw := append(payload, r.FillBytes(make([]byte, 32))...)
@@ -67,7 +69,7 @@ func TestValidateL1ZeroR(t *testing.T) {
 	rand.Read(payload)
 	rBytes := make([]byte, 32) // all zeros
 	sBytes := make([]byte, 32)
-	s, _ := rand.Int(rand.Reader, elliptic.P256().Params().N)
+	s, _ := rand.Int(rand.Reader, testCurveN)
 	s.FillBytes(sBytes)
 
 	raw := append(payload, rBytes...)
@@ -88,7 +90,7 @@ func TestValidateL1ZeroS(t *testing.T) {
 	payload := make([]byte, 80)
 	rand.Read(payload)
 	rBytes := make([]byte, 32)
-	r, _ := rand.Int(rand.Reader, elliptic.P256().Params().N)
+	r, _ := rand.Int(rand.Reader, testCurveN)
 	r.FillBytes(rBytes)
 	sBytes := make([]byte, 32) // all zeros
 
@@ -109,10 +111,9 @@ func TestValidateL1ZeroS(t *testing.T) {
 func TestValidateL1RAboveCurveOrder(t *testing.T) {
 	payload := make([]byte, 80)
 	rand.Read(payload)
-	curve := elliptic.P256()
 	// r = N (at curve order, should fail)
-	rBytes := curve.Params().N.FillBytes(make([]byte, 32))
-	s, _ := rand.Int(rand.Reader, curve.Params().N)
+	rBytes := testCurveN.FillBytes(make([]byte, 32))
+	s, _ := rand.Int(rand.Reader, testCurveN)
 	sBytes := s.FillBytes(make([]byte, 32))
 
 	raw := append(payload, rBytes...)
@@ -133,7 +134,7 @@ func TestValidateL2Valid(t *testing.T) {
 		Sender: &accountSnapshot{
 			Address: "io1alice",
 			Balance: "100000000000000000000",
-			Nonce:   4, // tx nonce 5 > account nonce 4
+			Nonce:   5, // tx nonce 5 == account nonce 5, valid (next expected)
 		},
 		Receiver: &accountSnapshot{
 			Address: "io1bob",
@@ -199,7 +200,7 @@ func TestValidateL2NonceTooLow(t *testing.T) {
 		Sender: &accountSnapshot{
 			Address: "io1alice",
 			Balance: "100000000000000000000",
-			Nonce:   5, // tx nonce 3 <= account nonce 5
+			Nonce:   5, // tx nonce 3 < account nonce 5 → replay
 		},
 	}
 	res := validateL2(task)
@@ -212,7 +213,7 @@ func TestValidateL2NonceTooLow(t *testing.T) {
 }
 
 func TestValidateL2NonceEqual(t *testing.T) {
-	// tx nonce == account nonce should also fail (we want strictly greater)
+	// tx nonce == account nonce should be valid (this IS the expected next nonce)
 	task := &taskPackage{
 		TaskID: 14,
 		TxRaw:  buildValidTxRaw(5),
@@ -223,8 +224,8 @@ func TestValidateL2NonceEqual(t *testing.T) {
 		},
 	}
 	res := validateL2(task)
-	if res.Valid {
-		t.Fatal("expected invalid for equal nonce")
+	if !res.Valid {
+		t.Fatalf("expected valid for equal nonce (next expected), got: %s", res.RejectReason)
 	}
 }
 
