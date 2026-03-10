@@ -5,13 +5,71 @@
 
 <div class="grid">
   <div class="card">
-    <div class="stat-label">Active API Keys</div>
-    <div class="stat">{{.KeyCount}}</div>
+    <div class="stat-label">Agents Online</div>
+    <div class="stat" id="agents-live">--</div>
   </div>
   <div class="card">
-    <div class="stat-label">Quick Actions</div>
+    <div class="stat-label">Tasks Dispatched</div>
+    <div class="stat" id="tasks-dispatched">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Shadow Accuracy</div>
+    <div class="stat" id="shadow-accuracy">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Task Level</div>
+    <div class="stat" id="task-level">--</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <div class="stat-label">Active API Keys</div>
+    <div class="stat">{{.KeyCount}}</div>
     <br>
     <a href="/api-keys" class="btn">Manage Keys</a>
+  </div>
+  <div class="card">
+    <div class="stat-label">Uptime</div>
+    <div class="stat" id="uptime">--</div>
+  </div>
+</div>
+
+<h2>Agent Leaderboard</h2>
+<table id="leaderboard" style="width:100%; border-collapse:collapse; margin-bottom:2rem;">
+  <thead>
+    <tr style="border-bottom:1px solid #333; color:#888; text-align:left;">
+      <th style="padding:0.5rem">#</th>
+      <th style="padding:0.5rem">Agent</th>
+      <th style="padding:0.5rem">Level</th>
+      <th style="padding:0.5rem">Tasks</th>
+      <th style="padding:0.5rem">Accuracy</th>
+      <th style="padding:0.5rem">Latency</th>
+      <th style="padding:0.5rem">Last Heartbeat</th>
+    </tr>
+  </thead>
+  <tbody id="leaderboard-body">
+    <tr><td colspan="7" style="padding:0.5rem; color:#666;">Loading...</td></tr>
+  </tbody>
+</table>
+
+<h2>Shadow Comparison</h2>
+<div class="grid" id="shadow-details">
+  <div class="card">
+    <div class="stat-label">Total Compared</div>
+    <div class="stat" id="shadow-compared">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Matched</div>
+    <div class="stat" id="shadow-matched" style="color:#00ff88;">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Mismatched</div>
+    <div class="stat" id="shadow-mismatched" style="color:#ff4444;">--</div>
+  </div>
+  <div class="card">
+    <div class="stat-label">EVM Gas Match</div>
+    <div class="stat" id="evm-gas">--</div>
   </div>
 </div>
 
@@ -29,5 +87,79 @@
     </li>
   </ol>
 </div>
+
+<script>
+function fmt(n) {
+  if (n === undefined || n === null) return '--';
+  if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function refreshStats() {
+  fetch('/api/swarm/status')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('agents-live').textContent = d.agents_live || 0;
+      document.getElementById('tasks-dispatched').textContent = fmt(d.tasks_dispatched);
+      document.getElementById('shadow-accuracy').textContent =
+        d.shadow_accuracy !== undefined ? d.shadow_accuracy + '%' : '--';
+      document.getElementById('task-level').textContent = d.task_level || '--';
+      document.getElementById('uptime').textContent = d.uptime || '--';
+    })
+    .catch(() => {
+      document.getElementById('agents-live').textContent = '?';
+    });
+}
+
+function refreshLeaderboard() {
+  fetch('/api/swarm/agents')
+    .then(r => r.json())
+    .then(d => {
+      const tbody = document.getElementById('leaderboard-body');
+      if (!d.agents || d.agents.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding:0.5rem; color:#666;">No agents connected</td></tr>';
+        return;
+      }
+      tbody.innerHTML = d.agents.map((a, i) => {
+        const hb = a.last_heartbeat ? new Date(a.last_heartbeat).toLocaleTimeString() : '--';
+        return `<tr style="border-bottom:1px solid #222;">
+          <td style="padding:0.5rem; color:#888;">${i+1}</td>
+          <td style="padding:0.5rem; color:#00ff88; font-family:monospace;">${a.id}</td>
+          <td style="padding:0.5rem;">${a.level || '--'}</td>
+          <td style="padding:0.5rem;">${fmt(a.tasks_processed)}</td>
+          <td style="padding:0.5rem;">--</td>
+          <td style="padding:0.5rem;">--</td>
+          <td style="padding:0.5rem; color:#666;">${hb}</td>
+        </tr>`;
+      }).join('');
+    })
+    .catch(() => {});
+}
+
+function refreshShadow() {
+  fetch('/api/swarm/shadow')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('shadow-compared').textContent = fmt(d.TotalCompared);
+      document.getElementById('shadow-matched').textContent = fmt(d.TotalMatched);
+      document.getElementById('shadow-mismatched').textContent = fmt(d.TotalMismatched);
+      const gasTotal = (d.EVMGasMatches || 0) + (d.EVMGasMismatches || 0);
+      document.getElementById('evm-gas').textContent =
+        gasTotal > 0 ? d.EVMGasMatches + '/' + gasTotal : '--';
+    })
+    .catch(() => {});
+}
+
+// Initial load
+refreshStats();
+refreshLeaderboard();
+refreshShadow();
+
+// Auto-refresh every 3 seconds
+setInterval(refreshStats, 3000);
+setInterval(refreshLeaderboard, 5000);
+setInterval(refreshShadow, 5000);
+</script>
 
 {{template "foot" .}}

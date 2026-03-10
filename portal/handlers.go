@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type contextKey int
@@ -28,15 +30,19 @@ type App struct {
 	store        *Store
 	masterSecret string
 	templates    *template.Template
+	swarmAPI     string // base URL for coordinator's SwarmAPI
+	httpClient   *http.Client
 }
 
 // NewApp creates a new App with parsed templates.
-func NewApp(store *Store, masterSecret, templatesDir string) *App {
+func NewApp(store *Store, masterSecret, templatesDir, swarmAPI string) *App {
 	tmpl := template.Must(template.ParseGlob(templatesDir + "/*.html"))
 	return &App{
 		store:        store,
 		masterSecret: masterSecret,
 		templates:    tmpl,
+		swarmAPI:     strings.TrimRight(swarmAPI, "/"),
+		httpClient:   &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
@@ -58,6 +64,9 @@ func (app *App) Routes() http.Handler {
 	mux.HandleFunc("GET /api-keys", app.sessionMiddleware(app.apiKeysList))
 	mux.HandleFunc("POST /api-keys/create", app.sessionMiddleware(app.apiKeysCreate))
 	mux.HandleFunc("POST /api-keys/revoke", app.sessionMiddleware(app.apiKeysRevoke))
+
+	// SwarmAPI proxy — forwards /api/swarm/* to coordinator's SwarmAPI
+	mux.HandleFunc("GET /api/swarm/", app.sessionMiddleware(app.swarmProxy))
 
 	// Redirect root to dashboard (or login)
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
@@ -250,5 +259,26 @@ func (app *App) apiKeysRevoke(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/api-keys", http.StatusSeeOther)
+}
+
+// --- SwarmAPI Proxy ---
+
+// swarmProxy forwards requests from /api/swarm/* to the coordinator's SwarmAPI.
+// E.g., /api/swarm/status → http://coordinator:14690/swarm/status
+func (app *App) swarmProxy(w http.ResponseWriter, r *http.Request) {
+	// Map /api/swarm/status → /swarm/status
+	path := strings.TrimPrefix(r.URL.Path, "/api")
+	targetURL := app.swarmAPI + path
+
+	resp, err := app.httpClient.Get(targetURL)
+	if err != nil {
+		http.Error(w, `{"error":"coordinator unreachable"}`, http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 

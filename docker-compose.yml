@@ -1,0 +1,117 @@
+# IOSwarm E2E demo — multi-agent swarm with EVM execution
+# Usage: docker-compose -f docker-compose.ioswarm.yml up --build
+#
+# Services:
+#   coordinator  — mock actpool + state, gRPC :14689, SwarmAPI :14690
+#   portal       — web UI :8888 (register, login, API keys, live dashboard)
+#   agent-1..5   — L3 EVM execution agents
+#   prometheus   — metrics :9091
+
+services:
+  # Test coordinator (mock actpool + state)
+  coordinator:
+    build:
+      context: ./ioswarm
+      dockerfile: Dockerfile.testcoord
+    command:
+      - --master-secret=demo-secret-2026
+      - --delegate-address=0x8e4801259fe0055103ca20f4677ff02ba276a10e
+      - --port=14689
+      - --task-level=L3
+    ports:
+      - "14689:14689"   # gRPC
+      - "14690:14690"   # SwarmAPI
+    networks:
+      - ioswarm
+
+  # Portal — web UI with live swarm dashboard
+  portal:
+    build: ./ioswarm-portal
+    command:
+      - --master-secret=demo-secret-2026
+      - --port=8888
+      - --swarm-api=http://coordinator:14690
+    ports:
+      - "8888:8888"
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Agent 1 — L3 full EVM
+  agent-1:
+    build: ./ioswarm-agent
+    command:
+      - --coordinator=coordinator:14689
+      - --agent-id=lobster-001
+      - --api-key=iosw_ff27896bd0b2eda5d2f8f68352db478dc7ad7cbe8fb1ec1d5baa499d03d596ee
+      - --level=L3
+      - --region=us-east
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Agent 2 — L3 full EVM
+  agent-2:
+    build: ./ioswarm-agent
+    command:
+      - --coordinator=coordinator:14689
+      - --agent-id=lobster-002
+      - --api-key=iosw_ab048d8a359f47fd0d32b7f629a853fff938d761c54b2a9eeae82ca4f21652a4
+      - --level=L3
+      - --region=us-west
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Agent 3 — L3 full EVM
+  agent-3:
+    build: ./ioswarm-agent
+    command:
+      - --coordinator=coordinator:14689
+      - --agent-id=lobster-003
+      - --api-key=iosw_081f557b8ebbf6dc16d7db97b276d3f1abe7ce2554235ac1d3843bcc667ffc47
+      - --level=L3
+      - --region=eu-west
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Agent 4 — L3 full EVM
+  agent-4:
+    build: ./ioswarm-agent
+    command:
+      - --coordinator=coordinator:14689
+      - --agent-id=lobster-004
+      - --api-key=iosw_c4e12f09a7b3d8e5f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3
+      - --level=L3
+      - --region=ap-east
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Agent 5 — L2 state verify (mixed capability)
+  agent-5:
+    build: ./ioswarm-agent
+    command:
+      - --coordinator=coordinator:14689
+      - --agent-id=lobster-005
+      - --api-key=iosw_d5f23e10b8c4e9f6a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5
+      - --level=L2
+      - --region=ap-east
+    depends_on: [coordinator]
+    networks:
+      - ioswarm
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus-ioswarm.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9091:9090"
+    networks:
+      - ioswarm
+
+networks:
+  ioswarm:
+    driver: bridge
