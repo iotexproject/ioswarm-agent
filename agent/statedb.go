@@ -8,10 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
 )
+
+// emptyCodeHash is the keccak256 of empty bytes, used as code hash for EOAs.
+var emptyCodeHash = crypto.Keccak256Hash(nil)
 
 // account holds in-memory account state for the EVM.
 type account struct {
@@ -33,24 +37,28 @@ type storageChange struct {
 
 // snapshotEntry is a deep copy of state at a point in time.
 type snapshotEntry struct {
-	accounts map[common.Address]*account
-	storage  map[common.Address]map[common.Hash]common.Hash
-	changes  []storageChange
-	logs     []*types.Log
+	accounts          map[common.Address]*account
+	storage           map[common.Address]map[common.Hash]common.Hash
+	changes           []storageChange
+	logs              []*types.Log
+	refund            uint64
+	accessedAddresses map[common.Address]bool
+	accessedSlots     map[common.Address]map[common.Hash]bool
 }
 
 // MemStateDB implements the vm.StateDB interface backed by in-memory maps.
 // It uses the iotex-core go-ethereum fork's interface signatures.
 type MemStateDB struct {
-	accounts  map[common.Address]*account
-	storage   map[common.Address]map[common.Hash]common.Hash
-	logs      []*types.Log
-	changes   []storageChange
-	snapshots []snapshotEntry
-	txHash    common.Hash
-	txIndex   int
-	logIndex  uint
-	refund    uint64
+	accounts         map[common.Address]*account
+	storage          map[common.Address]map[common.Hash]common.Hash
+	committedStorage map[common.Address]map[common.Hash]common.Hash // original values, never modified
+	logs             []*types.Log
+	changes          []storageChange
+	snapshots        []snapshotEntry
+	txHash           common.Hash
+	txIndex          int
+	logIndex         uint
+	refund           uint64
 
 	// Track accessed addresses/slots for EIP-2929
 	accessedAddresses map[common.Address]bool
@@ -68,6 +76,7 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 	s := &MemStateDB{
 		accounts:          make(map[common.Address]*account),
 		storage:           make(map[common.Address]map[common.Hash]common.Hash),
+		committedStorage:  make(map[common.Address]map[common.Hash]common.Hash),
 		accessedAddresses: make(map[common.Address]bool),
 		accessedSlots:     make(map[common.Address]map[common.Hash]bool),
 		transientStorage:  make(map[common.Address]map[common.Hash]common.Hash),
@@ -82,8 +91,9 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 			bal = big.NewInt(0)
 		}
 		s.accounts[addr] = &account{
-			balance: uint256.MustFromBig(bal),
-			nonce:   task.Sender.Nonce,
+			balance:  uint256.MustFromBig(bal),
+			nonce:    task.Sender.Nonce,
+			codeHash: emptyCodeHash,
 		}
 	}
 
@@ -95,8 +105,9 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 			bal = big.NewInt(0)
 		}
 		acct := &account{
-			balance: uint256.MustFromBig(bal),
-			nonce:   task.Receiver.Nonce,
+			balance:  uint256.MustFromBig(bal),
+			nonce:    task.Receiver.Nonce,
+			codeHash: emptyCodeHash,
 		}
 		if len(task.Receiver.CodeHash) > 0 {
 			acct.codeHash = common.BytesToHash(task.Receiver.CodeHash)
@@ -107,12 +118,15 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 	// Load contract code
 	for addrHex, code := range task.ContractCode {
 		addr := common.HexToAddress(addrHex)
+		h := crypto.Keccak256Hash(code)
 		if acct, ok := s.accounts[addr]; ok {
 			acct.code = code
+			acct.codeHash = h
 		} else {
 			s.accounts[addr] = &account{
-				balance: new(uint256.Int),
-				code:    code,
+				balance:  new(uint256.Int),
+				code:     code,
+				codeHash: h,
 			}
 		}
 	}
@@ -123,8 +137,14 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 		if s.storage[addr] == nil {
 			s.storage[addr] = make(map[common.Hash]common.Hash)
 		}
+		if s.committedStorage[addr] == nil {
+			s.committedStorage[addr] = make(map[common.Hash]common.Hash)
+		}
 		for slotHex, valHex := range slots {
-			s.storage[addr][common.HexToHash(slotHex)] = common.HexToHash(valHex)
+			k := common.HexToHash(slotHex)
+			v := common.HexToHash(valHex)
+			s.storage[addr][k] = v
+			s.committedStorage[addr][k] = v // committed = initial
 		}
 	}
 
@@ -135,7 +155,7 @@ func (s *MemStateDB) getOrCreateAccount(addr common.Address) *account {
 	if acct, ok := s.accounts[addr]; ok {
 		return acct
 	}
-	acct := &account{balance: new(uint256.Int), isNew: true}
+	acct := &account{balance: new(uint256.Int), isNew: true, codeHash: emptyCodeHash}
 	s.accounts[addr] = acct
 	return acct
 }
@@ -193,12 +213,9 @@ func (s *MemStateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.
 
 func (s *MemStateDB) GetCodeHash(addr common.Address) common.Hash {
 	if acct, ok := s.accounts[addr]; ok {
-		if len(acct.code) > 0 {
-			return acct.codeHash
-		}
-		return common.Hash{}
+		return acct.codeHash
 	}
-	return common.Hash{}
+	return common.Hash{} // non-existent account
 }
 
 func (s *MemStateDB) GetCode(addr common.Address) []byte {
@@ -212,6 +229,11 @@ func (s *MemStateDB) SetCode(addr common.Address, code []byte) []byte {
 	acct := s.getOrCreateAccount(addr)
 	prev := acct.code
 	acct.code = code
+	if len(code) > 0 {
+		acct.codeHash = crypto.Keccak256Hash(code)
+	} else {
+		acct.codeHash = emptyCodeHash
+	}
 	return prev
 }
 
@@ -225,8 +247,7 @@ func (s *MemStateDB) AddRefund(gas uint64) {
 
 func (s *MemStateDB) SubRefund(gas uint64) {
 	if gas > s.refund {
-		s.refund = 0
-		return
+		panic("Refund counter below zero")
 	}
 	s.refund -= gas
 }
@@ -236,7 +257,7 @@ func (s *MemStateDB) GetRefund() uint64 {
 }
 
 func (s *MemStateDB) GetCommittedState(addr common.Address, slot common.Hash) common.Hash {
-	if stor, ok := s.storage[addr]; ok {
+	if stor, ok := s.committedStorage[addr]; ok {
 		return stor[slot]
 	}
 	return common.Hash{}
@@ -266,7 +287,6 @@ func (s *MemStateDB) SetState(addr common.Address, slot common.Hash, value commo
 }
 
 func (s *MemStateDB) GetStorageRoot(addr common.Address) common.Hash {
-	// Not meaningful for in-memory state; return empty hash
 	return common.Hash{}
 }
 
@@ -306,7 +326,6 @@ func (s *MemStateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 		prev := s.SelfDestruct(addr)
 		return prev, true
 	}
-	// Post-EIP-6780: only destruct if created in same tx
 	if acct, ok := s.accounts[addr]; ok {
 		prev := *acct.balance
 		acct.balance = new(uint256.Int)
@@ -378,8 +397,10 @@ func (s *MemStateDB) Snapshot() int {
 		storage:  make(map[common.Address]map[common.Hash]common.Hash, len(s.storage)),
 		changes:  make([]storageChange, len(s.changes)),
 		logs:     make([]*types.Log, len(s.logs)),
+		refund:   s.refund,
 	}
 
+	// Deep copy accounts
 	for addr, acct := range s.accounts {
 		snap.accounts[addr] = &account{
 			balance:  acct.balance.Clone(),
@@ -390,6 +411,7 @@ func (s *MemStateDB) Snapshot() int {
 			isNew:    acct.isNew,
 		}
 	}
+	// Deep copy storage
 	for addr, slots := range s.storage {
 		snap.storage[addr] = make(map[common.Hash]common.Hash, len(slots))
 		for k, v := range slots {
@@ -398,6 +420,19 @@ func (s *MemStateDB) Snapshot() int {
 	}
 	copy(snap.changes, s.changes)
 	copy(snap.logs, s.logs)
+
+	// Deep copy access lists
+	snap.accessedAddresses = make(map[common.Address]bool, len(s.accessedAddresses))
+	for k, v := range s.accessedAddresses {
+		snap.accessedAddresses[k] = v
+	}
+	snap.accessedSlots = make(map[common.Address]map[common.Hash]bool, len(s.accessedSlots))
+	for addr, slots := range s.accessedSlots {
+		snap.accessedSlots[addr] = make(map[common.Hash]bool, len(slots))
+		for k, v := range slots {
+			snap.accessedSlots[addr][k] = v
+		}
+	}
 
 	id := len(s.snapshots)
 	s.snapshots = append(s.snapshots, snap)
@@ -409,10 +444,46 @@ func (s *MemStateDB) RevertToSnapshot(id int) {
 		return
 	}
 	snap := s.snapshots[id]
-	s.accounts = snap.accounts
-	s.storage = snap.storage
-	s.changes = snap.changes
-	s.logs = snap.logs
+
+	// Deep copy FROM snapshot (so snapshot data is preserved for potential re-revert)
+	s.accounts = make(map[common.Address]*account, len(snap.accounts))
+	for addr, acct := range snap.accounts {
+		s.accounts[addr] = &account{
+			balance:  acct.balance.Clone(),
+			nonce:    acct.nonce,
+			code:     append([]byte(nil), acct.code...),
+			codeHash: acct.codeHash,
+			suicided: acct.suicided,
+			isNew:    acct.isNew,
+		}
+	}
+	s.storage = make(map[common.Address]map[common.Hash]common.Hash, len(snap.storage))
+	for addr, slots := range snap.storage {
+		s.storage[addr] = make(map[common.Hash]common.Hash, len(slots))
+		for k, v := range slots {
+			s.storage[addr][k] = v
+		}
+	}
+
+	s.changes = make([]storageChange, len(snap.changes))
+	copy(s.changes, snap.changes)
+	s.logs = make([]*types.Log, len(snap.logs))
+	copy(s.logs, snap.logs)
+	s.refund = snap.refund
+
+	// Restore access lists
+	s.accessedAddresses = make(map[common.Address]bool, len(snap.accessedAddresses))
+	for k, v := range snap.accessedAddresses {
+		s.accessedAddresses[k] = v
+	}
+	s.accessedSlots = make(map[common.Address]map[common.Hash]bool, len(snap.accessedSlots))
+	for addr, slots := range snap.accessedSlots {
+		s.accessedSlots[addr] = make(map[common.Hash]bool, len(slots))
+		for k, v := range slots {
+			s.accessedSlots[addr][k] = v
+		}
+	}
+
 	s.snapshots = s.snapshots[:id]
 }
 

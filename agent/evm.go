@@ -15,7 +15,10 @@ import (
 // _inContractTransfer is the topic hash used by iotex-core's MakeTransfer
 // to emit synthetic logs for internal value transfers. This MUST match
 // the constant in iotex-core/action/protocol/execution/evm/evm.go.
-var _inContractTransfer = common.FromHex("0x1b4a6e0800000000000000000000000000000000000000000000000000000000")
+//
+// In iotex-core: hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
+// IN_CONTRACT_TRANSFER = 0, and BytesToHash256 right-pads to 32 bytes → all zeros.
+var _inContractTransfer = make([]byte, 32)
 
 // evmResult holds the outcome of EVM execution.
 type evmResult struct {
@@ -57,6 +60,13 @@ func executeEVM(task *taskPackage) *evmResult {
 		return &evmResult{
 			Success: false,
 			Error:   "no EVM tx data",
+		}
+	}
+
+	if task.Sender == nil {
+		return &evmResult{
+			Success: false,
+			Error:   "no sender account state",
 		}
 	}
 
