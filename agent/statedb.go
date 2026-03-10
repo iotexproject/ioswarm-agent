@@ -87,11 +87,15 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 	if task.Sender != nil {
 		addr := common.HexToAddress(task.Sender.Address)
 		bal, _ := new(big.Int).SetString(task.Sender.Balance, 10)
-		if bal == nil {
+		if bal == nil || bal.Sign() < 0 {
 			bal = big.NewInt(0)
 		}
+		balU256, _ := uint256.FromBig(bal)
+		if balU256 == nil {
+			balU256 = new(uint256.Int)
+		}
 		s.accounts[addr] = &account{
-			balance:  uint256.MustFromBig(bal),
+			balance:  balU256,
 			nonce:    task.Sender.Nonce,
 			codeHash: emptyCodeHash,
 		}
@@ -101,11 +105,15 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 	if task.Receiver != nil {
 		addr := common.HexToAddress(task.Receiver.Address)
 		bal, _ := new(big.Int).SetString(task.Receiver.Balance, 10)
-		if bal == nil {
+		if bal == nil || bal.Sign() < 0 {
 			bal = big.NewInt(0)
 		}
+		balU256, _ := uint256.FromBig(bal)
+		if balU256 == nil {
+			balU256 = new(uint256.Int)
+		}
 		acct := &account{
-			balance:  uint256.MustFromBig(bal),
+			balance:  balU256,
 			nonce:    task.Receiver.Nonce,
 			codeHash: emptyCodeHash,
 		}
@@ -182,7 +190,12 @@ func (s *MemStateDB) IsNewAccount(addr common.Address) bool {
 func (s *MemStateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	acct := s.getOrCreateAccount(addr)
 	prev := *acct.balance
-	acct.balance = new(uint256.Int).Sub(acct.balance, amount)
+	if acct.balance.Cmp(amount) < 0 {
+		// Underflow: clamp to zero (canTransfer should prevent this in normal flow)
+		acct.balance = new(uint256.Int)
+	} else {
+		acct.balance = new(uint256.Int).Sub(acct.balance, amount)
+	}
 	return prev
 }
 

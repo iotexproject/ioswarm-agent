@@ -94,7 +94,7 @@ func main() {
 	go heartbeatLoop(ctx, conn, *agentID, logger)
 
 	// Stream and process tasks
-	streamTasks(ctx, conn, *agentID, *level, logger)
+	streamTasks(ctx, conn, *agentID, *level, *region, *wallet, logger)
 }
 
 func register(ctx context.Context, conn *grpc.ClientConn, agentID, level, region, wallet string, logger *zap.Logger) error {
@@ -151,10 +151,17 @@ func heartbeatLoop(ctx context.Context, conn *grpc.ClientConn, agentID string, l
 	}
 }
 
-func streamTasks(ctx context.Context, conn *grpc.ClientConn, agentID, level string, logger *zap.Logger) {
+func streamTasks(ctx context.Context, conn *grpc.ClientConn, agentID, level, region, wallet string, logger *zap.Logger) {
 	for {
 		if ctx.Err() != nil {
 			return
+		}
+
+		// Re-register before opening stream (handles eviction recovery)
+		if err := register(ctx, conn, agentID, level, region, wallet, logger); err != nil {
+			logger.Warn("re-register failed, retrying", zap.Error(err))
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
 		logger.Info("opening task stream")

@@ -55,7 +55,17 @@ func iotexChainConfig() *params.ChainConfig {
 //   - Difficulty = 50 (iotex-core hardcoded value)
 //   - MakeTransfer with synthetic _inContractTransfer log
 //   - Same go-ethereum fork (via replace directive in go.mod)
-func executeEVM(task *taskPackage) *evmResult {
+func executeEVM(task *taskPackage) (result *evmResult) {
+	// Recover from go-ethereum panics (SubRefund, MustFromBig, etc.)
+	defer func() {
+		if r := recover(); r != nil {
+			result = &evmResult{
+				Success: false,
+				Error:   fmt.Sprintf("EVM panic: %v", r),
+			}
+		}
+	}()
+
 	if task.EvmTx == nil {
 		return &evmResult{
 			Success: false,
@@ -136,7 +146,13 @@ func executeEVM(task *taskPackage) *evmResult {
 	)
 
 	gas := etx.GasLimit
-	valueU256, _ := uint256.FromBig(value)
+	valueU256, overflow := uint256.FromBig(value)
+	if overflow {
+		return &evmResult{
+			Success: false,
+			Error:   "tx value exceeds uint256",
+		}
+	}
 
 	if etx.To == "" {
 		// Contract creation
@@ -149,7 +165,7 @@ func executeEVM(task *taskPackage) *evmResult {
 	gasUsed := gas - gasLeft
 
 	// 7. Collect results
-	result := &evmResult{
+	result = &evmResult{
 		Success:      err == nil,
 		GasUsed:      gasUsed,
 		ReturnData:   ret,

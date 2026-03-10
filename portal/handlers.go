@@ -266,8 +266,23 @@ func (app *App) apiKeysRevoke(w http.ResponseWriter, r *http.Request) {
 // swarmProxy forwards requests from /api/swarm/* to the coordinator's SwarmAPI.
 // E.g., /api/swarm/status → http://coordinator:14690/swarm/status
 func (app *App) swarmProxy(w http.ResponseWriter, r *http.Request) {
+	// Allowlist of SwarmAPI endpoints
+	allowed := map[string]bool{
+		"/swarm/status":      true,
+		"/swarm/agents":      true,
+		"/swarm/leaderboard": true,
+		"/swarm/epoch":       true,
+		"/swarm/shadow":      true,
+		"/healthz":           true,
+	}
+
 	// Map /api/swarm/status → /swarm/status
 	path := strings.TrimPrefix(r.URL.Path, "/api")
+	if !allowed[path] {
+		http.Error(w, `{"error":"not allowed"}`, http.StatusForbidden)
+		return
+	}
+
 	targetURL := app.swarmAPI + path
 
 	resp, err := app.httpClient.Get(targetURL)
@@ -279,6 +294,6 @@ func (app *App) swarmProxy(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+	io.Copy(w, io.LimitReader(resp.Body, 1<<20)) // limit to 1MB
 }
 
