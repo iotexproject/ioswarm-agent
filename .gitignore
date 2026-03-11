@@ -1,0 +1,13 @@
+# Compiled binaries
+ioswarm-agent
+*.exe
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
