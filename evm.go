@@ -172,7 +172,7 @@ func executeEVM(task *taskPackage) (result *evmResult) {
 		StateChanges: stateDB.GetStateChanges(),
 	}
 
-	// Convert logs (filter out synthetic _inContractTransfer logs)
+	// Convert logs
 	for _, log := range stateDB.GetLogs() {
 		le := &logEntry{
 			Address: log.Address.Hex(),

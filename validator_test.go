@@ -326,9 +326,12 @@ func TestValidateTaskIntegration(t *testing.T) {
 	if !r.Valid {
 		t.Fatalf("L3 failed: %s", r.RejectReason)
 	}
-	// L3 with no EvmTx falls back to L2 with note
-	if r.RejectReason != "no EVM tx data, L2 result only" {
-		t.Fatalf("expected L3 fallback note, got: %s", r.RejectReason)
+	// L3 with no EvmTx falls back to L2: Note should be set, RejectReason should be empty
+	if r.RejectReason != "" {
+		t.Fatalf("expected no reject reason for valid L3 fallback, got: %s", r.RejectReason)
+	}
+	if r.Note != "no EVM tx data, L2 result only" {
+		t.Fatalf("expected L3 fallback note, got: %q", r.Note)
 	}
 }
 

@@ -41,11 +41,9 @@ func validateTask(task *taskPackage, level string) *taskResult {
 		TaskID:       task.TaskID,
 		Valid:        res.Valid,
 		RejectReason: res.RejectReason,
+		Note:         res.Note,
 		GasEstimate:  res.GasEstimate,
 		LatencyUs:    res.LatencyUs,
-	}
-	if res.Note != "" && res.RejectReason == "" {
-		r.RejectReason = res.Note
 	}
 
 	// Propagate EVM execution results (L3)

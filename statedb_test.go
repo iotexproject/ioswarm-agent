@@ -135,6 +135,34 @@ func TestMemStateDB_LoadFromTask(t *testing.T) {
 	}
 }
 
+func TestMemStateDB_TransientStorageSnapshotRevert(t *testing.T) {
+	task := &taskPackage{}
+	db := NewMemStateDB(task)
+	addr := common.HexToAddress("0x5555555555555555555555555555555555555555")
+	slot := common.HexToHash("0x01")
+	val := common.HexToHash("0xAB")
+
+	db.SetTransientState(addr, slot, val)
+	if got := db.GetTransientState(addr, slot); got != val {
+		t.Fatalf("expected %s, got %s", val.Hex(), got.Hex())
+	}
+
+	snap := db.Snapshot()
+
+	// Modify transient storage after snapshot
+	val2 := common.HexToHash("0xCD")
+	db.SetTransientState(addr, slot, val2)
+	if got := db.GetTransientState(addr, slot); got != val2 {
+		t.Fatalf("expected %s after update, got %s", val2.Hex(), got.Hex())
+	}
+
+	// Revert should restore original transient value
+	db.RevertToSnapshot(snap)
+	if got := db.GetTransientState(addr, slot); got != val {
+		t.Fatalf("after revert: expected %s, got %s", val.Hex(), got.Hex())
+	}
+}
+
 func TestMemStateDB_SelfDestruct(t *testing.T) {
 	task := &taskPackage{}
 	db := NewMemStateDB(task)

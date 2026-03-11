@@ -943,6 +943,7 @@ func TestRewardE2E_Step7_HundredAgents(t *testing.T) {
 func TestRewardE2E_Invariant_NoOverdraft(t *testing.T) {
 	env := setupTestEnv(t)
 	defer env.client.Close()
+	env.deployFreshContract(t)
 
 	t.Log("=== Invariant: Contract Balance >= Sum of Claimable ===")
 

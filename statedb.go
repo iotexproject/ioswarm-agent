@@ -44,6 +44,7 @@ type snapshotEntry struct {
 	refund            uint64
 	accessedAddresses map[common.Address]bool
 	accessedSlots     map[common.Address]map[common.Hash]bool
+	transientStorage  map[common.Address]map[common.Hash]common.Hash
 }
 
 // MemStateDB implements the vm.StateDB interface backed by in-memory maps.
@@ -447,6 +448,15 @@ func (s *MemStateDB) Snapshot() int {
 		}
 	}
 
+	// Deep copy transient storage (EIP-1153)
+	snap.transientStorage = make(map[common.Address]map[common.Hash]common.Hash, len(s.transientStorage))
+	for addr, slots := range s.transientStorage {
+		snap.transientStorage[addr] = make(map[common.Hash]common.Hash, len(slots))
+		for k, v := range slots {
+			snap.transientStorage[addr][k] = v
+		}
+	}
+
 	id := len(s.snapshots)
 	s.snapshots = append(s.snapshots, snap)
 	return id
@@ -494,6 +504,15 @@ func (s *MemStateDB) RevertToSnapshot(id int) {
 		s.accessedSlots[addr] = make(map[common.Hash]bool, len(slots))
 		for k, v := range slots {
 			s.accessedSlots[addr][k] = v
+		}
+	}
+
+	// Restore transient storage (EIP-1153)
+	s.transientStorage = make(map[common.Address]map[common.Hash]common.Hash, len(snap.transientStorage))
+	for addr, slots := range snap.transientStorage {
+		s.transientStorage[addr] = make(map[common.Hash]common.Hash, len(slots))
+		for k, v := range slots {
+			s.transientStorage[addr][k] = v
 		}
 	}
 

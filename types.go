@@ -84,6 +84,7 @@ type taskResult struct {
 	TaskID       uint32 `json:"task_id"`
 	Valid        bool   `json:"valid"`
 	RejectReason string `json:"reject_reason,omitempty"`
+	Note         string `json:"note,omitempty"`
 	GasEstimate  uint64 `json:"gas_estimate"`
 	LatencyUs    uint64 `json:"latency_us"`
 

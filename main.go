@@ -101,18 +101,23 @@ func main() {
 	}()
 
 	// Register with coordinator
-	if err := register(ctx, conn, *agentID, *level, *region, *wallet, logger); err != nil {
+	resp, err := register(ctx, conn, *agentID, *level, *region, *wallet, logger)
+	if err != nil {
 		logger.Fatal("registration failed", zap.Error(err))
 	}
 
 	// Start heartbeat loop in background
-	go heartbeatLoop(ctx, conn, *agentID, logger)
+	hbInterval := time.Duration(resp.HeartbeatIntervalSec) * time.Second
+	if hbInterval < time.Second {
+		hbInterval = 10 * time.Second
+	}
+	go heartbeatLoop(ctx, conn, *agentID, hbInterval, logger)
 
 	// Stream and process tasks
 	streamTasks(ctx, conn, *agentID, *level, *region, *wallet, logger)
 }
 
-func register(ctx context.Context, conn *grpc.ClientConn, agentID, level, region, wallet string, logger *zap.Logger) error {
+func register(ctx context.Context, conn *grpc.ClientConn, agentID, level, region, wallet string, logger *zap.Logger) (*registerResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -126,19 +131,19 @@ func register(ctx context.Context, conn *grpc.ClientConn, agentID, level, region
 	resp := &registerResponse{}
 
 	if err := conn.Invoke(ctx, methodRegister, req, resp); err != nil {
-		return fmt.Errorf("register RPC: %w", err)
+		return nil, fmt.Errorf("register RPC: %w", err)
 	}
 	if !resp.Accepted {
-		return fmt.Errorf("rejected: %s", resp.Reason)
+		return nil, fmt.Errorf("rejected: %s", resp.Reason)
 	}
 
 	logger.Info("registered with coordinator",
 		zap.Uint32("heartbeat_interval", resp.HeartbeatIntervalSec))
-	return nil
+	return resp, nil
 }
 
-func heartbeatLoop(ctx context.Context, conn *grpc.ClientConn, agentID string, logger *zap.Logger) {
-	ticker := time.NewTicker(10 * time.Second)
+func heartbeatLoop(ctx context.Context, conn *grpc.ClientConn, agentID string, interval time.Duration, logger *zap.Logger) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -146,38 +151,48 @@ func heartbeatLoop(ctx context.Context, conn *grpc.ClientConn, agentID string, l
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			hbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			req := &heartbeatRequest{
-				AgentID:        agentID,
-				TasksProcessed: tasksProcessed.Load(),
-			}
-			resp := &heartbeatResponse{}
-			if err := conn.Invoke(hbCtx, methodHeartbeat, req, resp); err != nil {
-				logger.Warn("heartbeat failed", zap.Error(err))
-			} else if !resp.Alive {
-				logger.Warn("coordinator says not alive", zap.String("directive", resp.Directive))
-			} else if resp.Payout != nil {
-				logger.Info("payout received",
-					zap.Uint64("epoch", resp.Payout.Epoch),
-					zap.Float64("amount_iotx", resp.Payout.AmountIOTX))
-			}
-			cancel()
+			sendHeartbeat(ctx, conn, agentID, logger)
 		}
 	}
 }
 
+func sendHeartbeat(ctx context.Context, conn *grpc.ClientConn, agentID string, logger *zap.Logger) {
+	hbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req := &heartbeatRequest{
+		AgentID:        agentID,
+		TasksProcessed: tasksProcessed.Load(),
+	}
+	resp := &heartbeatResponse{}
+	if err := conn.Invoke(hbCtx, methodHeartbeat, req, resp); err != nil {
+		logger.Warn("heartbeat failed", zap.Error(err))
+	} else if !resp.Alive {
+		logger.Warn("coordinator says not alive", zap.String("directive", resp.Directive))
+	} else if resp.Payout != nil {
+		logger.Info("payout received",
+			zap.Uint64("epoch", resp.Payout.Epoch),
+			zap.Float64("amount_iotx", resp.Payout.AmountIOTX))
+	}
+}
+
 func streamTasks(ctx context.Context, conn *grpc.ClientConn, agentID, level, region, wallet string, logger *zap.Logger) {
+	firstRun := true
 	for {
 		if ctx.Err() != nil {
 			return
 		}
 
-		// Re-register before opening stream (handles eviction recovery)
-		if err := register(ctx, conn, agentID, level, region, wallet, logger); err != nil {
-			logger.Warn("re-register failed, retrying", zap.Error(err))
-			time.Sleep(5 * time.Second)
-			continue
+		// Re-register before opening stream (handles eviction recovery).
+		// Skip on first iteration since main() already registered.
+		if !firstRun {
+			if _, err := register(ctx, conn, agentID, level, region, wallet, logger); err != nil {
+				logger.Warn("re-register failed, retrying", zap.Error(err))
+				time.Sleep(5 * time.Second)
+				continue
+			}
 		}
+		firstRun = false
 
 		logger.Info("opening task stream")
 
