@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -162,6 +163,31 @@ func (s *StateStore) GetAccount(addrHash []byte) (*IoTXAccount, error) {
 // Returns nil, nil if the code is not found.
 func (s *StateStore) GetCode(codeHash []byte) ([]byte, error) {
 	return s.Get(nsCode, codeHash)
+}
+
+// GetStorageSlot looks up a contract storage slot by traversing the local MPT trie.
+// addrHash is the 20-byte address (Account namespace key).
+// slot is the 32-byte storage key as used by EVM (SLOAD/SSTORE operand).
+// Returns the raw storage value (typically 32 bytes), or nil if not found.
+func (s *StateStore) GetStorageSlot(addrHash []byte, slot []byte) ([]byte, error) {
+	acct, err := s.GetAccount(addrHash)
+	if err != nil {
+		return nil, fmt.Errorf("get account: %w", err)
+	}
+	if acct == nil {
+		return nil, nil
+	}
+	if len(acct.Root) == 0 {
+		return nil, nil
+	}
+	val, err := trieGet(s, acct.Root, slot)
+	if err != nil {
+		if errors.Is(err, errKeyNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("trie get: %w", err)
+	}
+	return val, nil
 }
 
 // Stats returns basic stats about the store.

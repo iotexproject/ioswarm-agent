@@ -49,6 +49,9 @@ type snapshotEntry struct {
 
 // MemStateDB implements the vm.StateDB interface backed by in-memory maps.
 // It uses the iotex-core go-ethereum fork's interface signatures.
+//
+// For L4 validation, localStore can be set to enable fallback reads from
+// the local BoltDB state (accounts, code, storage via MPT trie traversal).
 type MemStateDB struct {
 	accounts         map[common.Address]*account
 	storage          map[common.Address]map[common.Hash]common.Hash
@@ -70,6 +73,9 @@ type MemStateDB struct {
 
 	// Point cache for verkle tree ops
 	pointCache *utils.PointCache
+
+	// L4: local state store for fallback reads (nil = coordinator-only mode)
+	localStore *StateStore
 }
 
 // NewMemStateDB creates a new in-memory StateDB populated from a task.
@@ -160,8 +166,50 @@ func NewMemStateDB(task *taskPackage) *MemStateDB {
 	return s
 }
 
+// SetLocalStore enables L4 fallback reads from the local BoltDB state.
+// When set, GetState/GetBalance/GetNonce/GetCode/Exist will fall back to
+// the local store if the data isn't in the coordinator-provided state.
+func (s *MemStateDB) SetLocalStore(store *StateStore) {
+	s.localStore = store
+}
+
+// loadAccountFromStore tries to load an account from the local StateStore,
+// caches it in memory, and returns it. Returns nil if not found or no store.
+func (s *MemStateDB) loadAccountFromStore(addr common.Address) *account {
+	if s.localStore == nil {
+		return nil
+	}
+	ioAcct, err := s.localStore.GetAccount(addr[:])
+	if err != nil || ioAcct == nil {
+		return nil
+	}
+	bal, _ := uint256.FromBig(ioAcct.Balance)
+	if bal == nil {
+		bal = new(uint256.Int)
+	}
+	a := &account{
+		balance:  bal,
+		nonce:    ioAcct.Nonce,
+		codeHash: emptyCodeHash,
+	}
+	if len(ioAcct.CodeHash) > 0 {
+		a.codeHash = common.BytesToHash(ioAcct.CodeHash)
+		// Load contract bytecode
+		code, err := s.localStore.GetCode(ioAcct.CodeHash)
+		if err == nil && code != nil {
+			a.code = code
+		}
+	}
+	s.accounts[addr] = a
+	return a
+}
+
 func (s *MemStateDB) getOrCreateAccount(addr common.Address) *account {
 	if acct, ok := s.accounts[addr]; ok {
+		return acct
+	}
+	// L4 fallback: try local store before creating empty account
+	if acct := s.loadAccountFromStore(addr); acct != nil {
 		return acct
 	}
 	acct := &account{balance: new(uint256.Int), isNew: true, codeHash: emptyCodeHash}
@@ -183,7 +231,11 @@ func (s *MemStateDB) CreateContract(addr common.Address) {
 func (s *MemStateDB) IsNewAccount(addr common.Address) bool {
 	acct, ok := s.accounts[addr]
 	if !ok {
-		return true // non-existent account is considered "new"
+		// Check local store — if account exists there, it's not new
+		if loaded := s.loadAccountFromStore(addr); loaded != nil {
+			return false
+		}
+		return true
 	}
 	return acct.isNew
 }
@@ -211,11 +263,17 @@ func (s *MemStateDB) GetBalance(addr common.Address) *uint256.Int {
 	if acct, ok := s.accounts[addr]; ok {
 		return acct.balance.Clone()
 	}
+	if acct := s.loadAccountFromStore(addr); acct != nil {
+		return acct.balance.Clone()
+	}
 	return new(uint256.Int)
 }
 
 func (s *MemStateDB) GetNonce(addr common.Address) uint64 {
 	if acct, ok := s.accounts[addr]; ok {
+		return acct.nonce
+	}
+	if acct := s.loadAccountFromStore(addr); acct != nil {
 		return acct.nonce
 	}
 	return 0
@@ -229,11 +287,17 @@ func (s *MemStateDB) GetCodeHash(addr common.Address) common.Hash {
 	if acct, ok := s.accounts[addr]; ok {
 		return acct.codeHash
 	}
+	if acct := s.loadAccountFromStore(addr); acct != nil {
+		return acct.codeHash
+	}
 	return common.Hash{} // non-existent account
 }
 
 func (s *MemStateDB) GetCode(addr common.Address) []byte {
 	if acct, ok := s.accounts[addr]; ok {
+		return acct.code
+	}
+	if acct := s.loadAccountFromStore(addr); acct != nil {
 		return acct.code
 	}
 	return nil
@@ -272,16 +336,50 @@ func (s *MemStateDB) GetRefund() uint64 {
 
 func (s *MemStateDB) GetCommittedState(addr common.Address, slot common.Hash) common.Hash {
 	if stor, ok := s.committedStorage[addr]; ok {
-		return stor[slot]
+		if v, ok := stor[slot]; ok {
+			return v
+		}
+	}
+	// L4 fallback: read from local MPT trie
+	if v, ok := s.loadSlotFromStore(addr, slot); ok {
+		return v
 	}
 	return common.Hash{}
 }
 
 func (s *MemStateDB) GetState(addr common.Address, slot common.Hash) common.Hash {
 	if stor, ok := s.storage[addr]; ok {
-		return stor[slot]
+		if v, ok := stor[slot]; ok {
+			return v
+		}
+	}
+	// L4 fallback: read from local MPT trie
+	if v, ok := s.loadSlotFromStore(addr, slot); ok {
+		return v
 	}
 	return common.Hash{}
+}
+
+// loadSlotFromStore reads a storage slot from the local MPT trie and caches it.
+func (s *MemStateDB) loadSlotFromStore(addr common.Address, slot common.Hash) (common.Hash, bool) {
+	if s.localStore == nil {
+		return common.Hash{}, false
+	}
+	val, err := s.localStore.GetStorageSlot(addr[:], slot[:])
+	if err != nil || val == nil {
+		return common.Hash{}, false
+	}
+	v := common.BytesToHash(val)
+	// Cache in both storage maps so subsequent reads are fast
+	if s.storage[addr] == nil {
+		s.storage[addr] = make(map[common.Hash]common.Hash)
+	}
+	s.storage[addr][slot] = v
+	if s.committedStorage[addr] == nil {
+		s.committedStorage[addr] = make(map[common.Hash]common.Hash)
+	}
+	s.committedStorage[addr][slot] = v
+	return v, true
 }
 
 func (s *MemStateDB) SetState(addr common.Address, slot common.Hash, value common.Hash) common.Hash {
@@ -349,14 +447,22 @@ func (s *MemStateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 }
 
 func (s *MemStateDB) Exist(addr common.Address) bool {
-	_, ok := s.accounts[addr]
-	return ok
+	if _, ok := s.accounts[addr]; ok {
+		return true
+	}
+	if acct := s.loadAccountFromStore(addr); acct != nil {
+		return true
+	}
+	return false
 }
 
 func (s *MemStateDB) Empty(addr common.Address) bool {
 	acct, ok := s.accounts[addr]
 	if !ok {
-		return true
+		acct = s.loadAccountFromStore(addr)
+		if acct == nil {
+			return true
+		}
 	}
 	return acct.nonce == 0 && acct.balance.IsZero() && len(acct.code) == 0
 }

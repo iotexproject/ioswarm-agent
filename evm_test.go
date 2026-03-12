@@ -35,7 +35,7 @@ func TestEVM_SimpleTransfer(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if !result.Success {
 		t.Fatalf("transfer failed: %s", result.Error)
 	}
@@ -100,7 +100,7 @@ func TestEVM_CounterIncrement(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if !result.Success {
 		t.Fatalf("counter increment failed: %s", result.Error)
 	}
@@ -152,7 +152,7 @@ func TestEVM_ContractCreation(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if !result.Success {
 		t.Fatalf("contract creation failed: %s", result.Error)
 	}
@@ -198,7 +198,7 @@ func TestEVM_OutOfGas(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if result.Success {
 		t.Fatal("expected failure due to out of gas")
 	}
@@ -218,7 +218,7 @@ func TestEVM_NoEvmTx(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if result.Success {
 		t.Fatal("expected failure with no EVM tx")
 	}
@@ -268,7 +268,7 @@ func TestEVM_StateDiffCorrectness(t *testing.T) {
 		},
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, nil)
 	if !result.Success {
 		t.Fatalf("execution failed: %s", result.Error)
 	}

@@ -201,8 +201,8 @@ func validateL3(task *taskPackage) ValidationResult {
 		return l2
 	}
 
-	// Execute EVM
-	result := executeEVM(task)
+	// Execute EVM (no local store for L3 — coordinator-only)
+	result := executeEVM(task, nil)
 
 	vr := ValidationResult{
 		Valid:       result.Success,
@@ -222,8 +222,8 @@ func validateL3(task *taskPackage) ValidationResult {
 // Flow:
 //  1. L1 signature checks (same as before)
 //  2. L2 state checks — try local BoltDB Account first, fall back to coordinator state
-//  3. L3 EVM — still uses coordinator-provided ContractCode/StorageSlots
-//     (Contract namespace stores MPT trie nodes, can't do flat lookup — Stage-2)
+//  3. L3 EVM — with local state fallback: accounts, code, and storage slots
+//     are read from local BoltDB via MPT trie traversal when not in coordinator data
 func validateL4(task *taskPackage) ValidationResult {
 	store := activeStateStore.Load()
 	if store == nil {
@@ -280,7 +280,7 @@ func validateL4(task *taskPackage) ValidationResult {
 		}
 	}
 
-	// L3 EVM — still uses coordinator-provided ContractCode/StorageSlots
+	// L3 EVM — with local state fallback for storage/code/accounts
 	if task.EvmTx == nil {
 		gasEstimate := uint64(21000)
 		if task.Receiver != nil && len(task.Receiver.CodeHash) > 0 {
@@ -293,11 +293,11 @@ func validateL4(task *taskPackage) ValidationResult {
 		return ValidationResult{
 			Valid:       true,
 			GasEstimate: gasEstimate,
-			Note:        fmt.Sprintf("L4-stateful(h=%d,src=%s): no-evm", localHeight, src),
+			Note:        fmt.Sprintf("L4(h=%d,src=%s): no-evm", localHeight, src),
 		}
 	}
 
-	result := executeEVM(task)
+	result := executeEVM(task, store)
 	vr := ValidationResult{
 		Valid:       result.Success,
 		GasEstimate: result.GasUsed,
@@ -311,7 +311,7 @@ func validateL4(task *taskPackage) ValidationResult {
 	if localUsed {
 		src = "local"
 	}
-	vr.Note = fmt.Sprintf("L4-stateful(h=%d,src=%s): evm", localHeight, src)
+	vr.Note = fmt.Sprintf("L4(h=%d,src=%s): evm", localHeight, src)
 	return vr
 }
 

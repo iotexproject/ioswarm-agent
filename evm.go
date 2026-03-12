@@ -31,21 +31,31 @@ type evmResult struct {
 }
 
 // iotexChainConfig returns the chain config matching iotex-core's getChainConfig().
-// All Ethereum forks through London are activated at block 0 (IoTeX has its own
-// hard-fork schedule that maps to these).
+// All Ethereum forks through Cancun are activated at block/time 0 since IoTeX
+// mainnet has already passed all these fork heights (Shanghai at 28.5M, Cancun
+// at 33.7M, current height ~46M).
 func iotexChainConfig() *params.ChainConfig {
+	shanghaiTime := uint64(0)
+	cancunTime := uint64(0)
 	return &params.ChainConfig{
-		ChainID:             big.NewInt(4689), // IoTeX mainnet
-		HomesteadBlock:      big.NewInt(0),
-		EIP150Block:         big.NewInt(0),
-		EIP155Block:         big.NewInt(0),
-		EIP158Block:         big.NewInt(0),
-		ByzantiumBlock:      big.NewInt(0),
-		ConstantinopleBlock: big.NewInt(0),
-		PetersburgBlock:     big.NewInt(0),
-		IstanbulBlock:       big.NewInt(0),
-		BerlinBlock:         big.NewInt(0),
-		LondonBlock:         big.NewInt(0),
+		ChainID:                 big.NewInt(4689), // IoTeX mainnet
+		HomesteadBlock:          big.NewInt(0),
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		MuirGlacierBlock:       big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ArrowGlacierBlock:      big.NewInt(0),
+		GrayGlacierBlock:       big.NewInt(0),
+		MergeNetsplitBlock:     big.NewInt(0),
+		TerminalTotalDifficulty: big.NewInt(0),
+		ShanghaiTime:           &shanghaiTime,
+		CancunTime:             &cancunTime,
 	}
 }
 
@@ -55,7 +65,10 @@ func iotexChainConfig() *params.ChainConfig {
 //   - Difficulty = 50 (iotex-core hardcoded value)
 //   - MakeTransfer with synthetic _inContractTransfer log
 //   - Same go-ethereum fork (via replace directive in go.mod)
-func executeEVM(task *taskPackage) (result *evmResult) {
+//
+// If store is non-nil, the MemStateDB will fall back to reading from local
+// BoltDB state when data isn't in the coordinator-provided task.
+func executeEVM(task *taskPackage, store *StateStore) (result *evmResult) {
 	// Recover from go-ethereum panics (SubRefund, MustFromBig, etc.)
 	defer func() {
 		if r := recover(); r != nil {
@@ -82,6 +95,9 @@ func executeEVM(task *taskPackage) (result *evmResult) {
 
 	// 1. Build MemStateDB from task
 	stateDB := NewMemStateDB(task)
+	if store != nil {
+		stateDB.SetLocalStore(store)
+	}
 
 	// 2. Parse transaction fields
 	etx := task.EvmTx
@@ -97,6 +113,9 @@ func executeEVM(task *taskPackage) (result *evmResult) {
 	senderAddr := common.HexToAddress(task.Sender.Address)
 
 	// 3. Build block context (matching iotex-core's executeInEVM)
+	// Random must be non-nil to signal post-merge, which enables Shanghai/Cancun
+	// rules in go-ethereum's ChainConfig.Rules(). iotex-core sets Random = &common.Hash{}.
+	random := common.Hash{}
 	var blockCtx vm.BlockContext
 	if task.BlockContext != nil {
 		baseFee, _ := new(big.Int).SetString(task.BlockContext.BaseFee, 10)
@@ -113,6 +132,8 @@ func executeEVM(task *taskPackage) (result *evmResult) {
 			Difficulty:  new(big.Int).SetUint64(50), // iotex-core hardcoded
 			GasLimit:    task.BlockContext.GasLimit,
 			BaseFee:     baseFee,
+			Random:      &random,
+			BlobBaseFee: big.NewInt(0),
 		}
 	} else {
 		blockCtx = vm.BlockContext{
@@ -124,6 +145,8 @@ func executeEVM(task *taskPackage) (result *evmResult) {
 			Difficulty:  new(big.Int).SetUint64(50),
 			GasLimit:    30_000_000,
 			BaseFee:     big.NewInt(0),
+			Random:      &random,
+			BlobBaseFee: big.NewInt(0),
 		}
 	}
 
