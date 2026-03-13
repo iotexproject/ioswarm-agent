@@ -290,13 +290,40 @@ Batch-send IOTX to multiple agent wallets (for claim gas fees).
 ### Reward Flow
 
 ```
-Epoch timer fires (every 30s)
-    → Coordinator calculates agent weights
-    → depositAndSettle(agents[], weights[]) + msg.value
-    → Contract updates cumulativeRewardPerWeight
-    → Agent heartbeat receives payout notification
-    → Agent calls claim() when ready → IOTX transferred to wallet
+Delegate Operator
+│
+│  Funds the coordinator hot wallet with IOTX
+│  (this is the reward budget for agents)
+│
+▼
+Coordinator Hot Wallet (EOA)
+│
+│  Every epoch (30s):
+│  1. Calculate each agent's weight (tasks × accuracy bonus)
+│  2. Call depositAndSettle(agents[], weights[])
+│     with msg.value = epochReward × (1 - delegateCut)
+│
+▼
+AgentRewardPool Contract (on-chain)
+│
+│  1. Receives IOTX from coordinator
+│  2. Updates cumulativeRewardPerWeight (F1 algorithm)
+│  3. Each agent's pending reward accumulates proportionally
+│
+▼
+Agents call claim() at any time
+│
+│  Agent-A wallet → receives proportional share
+│  Agent-B wallet → receives proportional share
+│  ...
+│
+▼
+IOTX in agent wallets ✅
 ```
+
+**Fund flow summary:** Delegate operator loads IOTX into the coordinator hot wallet → coordinator drips it into the on-chain contract each epoch based on work done → agents withdraw from the contract whenever they want.
+
+The coordinator hot wallet must maintain sufficient IOTX balance to cover epoch rewards + gas fees. If the wallet runs dry, on-chain settlement pauses (agents keep working and accumulating internal credits, which are settled once the wallet is refunded).
 
 ### Key Parameters (delegate config)
 
