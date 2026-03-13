@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0f;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#12101a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d0b14;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e63946;stop-opacity:0.8" />
+      <stop offset="50%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e63946;stop-opacity:0.8" />
+    </linearGradient>
+    <linearGradient id="gridGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e63946;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#e63946;stop-opacity:0" />
+    </linearGradient>
+    <radialGradient id="orb1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#ff6b35;stop-opacity:0" />
+    </radialGradient>
+    <radialGradient id="orb2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#e63946;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:#e63946;stop-opacity:0" />
+    </radialGradient>
+    <filter id="textGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="300" fill="url(#bg)"/>
+
+  <!-- Perspective grid (bottom) -->
+  <g opacity="0.12" stroke="#e63946" stroke-width="0.5">
+    <!-- Horizontal lines -->
+    <line x1="0" y1="220" x2="900" y2="220"/>
+    <line x1="0" y1="240" x2="900" y2="240"/>
+    <line x1="0" y1="255" x2="900" y2="255"/>
+    <line x1="0" y1="268" x2="900" y2="268"/>
+    <line x1="0" y1="278" x2="900" y2="278"/>
+    <line x1="0" y1="286" x2="900" y2="286"/>
+    <line x1="0" y1="293" x2="900" y2="293"/>
+    <!-- Vertical converging lines -->
+    <line x1="450" y1="180" x2="0" y2="300"/>
+    <line x1="450" y1="180" x2="100" y2="300"/>
+    <line x1="450" y1="180" x2="200" y2="300"/>
+    <line x1="450" y1="180" x2="300" y2="300"/>
+    <line x1="450" y1="180" x2="450" y2="300"/>
+    <line x1="450" y1="180" x2="600" y2="300"/>
+    <line x1="450" y1="180" x2="700" y2="300"/>
+    <line x1="450" y1="180" x2="800" y2="300"/>
+    <line x1="450" y1="180" x2="900" y2="300"/>
+  </g>
+
+  <!-- Ambient orbs -->
+  <ellipse cx="180" cy="120" rx="200" ry="150" fill="url(#orb2)"/>
+  <ellipse cx="720" cy="100" rx="180" ry="140" fill="url(#orb1)"/>
+
+  <!-- Circuit traces (left side) -->
+  <g stroke="#e63946" stroke-width="1" fill="none" opacity="0.25">
+    <path d="M 30 80 L 80 80 L 100 60 L 160 60"/>
+    <path d="M 30 100 L 60 100 L 80 120 L 140 120"/>
+    <path d="M 30 140 L 90 140 L 110 160 L 150 160"/>
+    <circle cx="160" cy="60" r="3" fill="#e63946"/>
+    <circle cx="140" cy="120" r="3" fill="#e63946"/>
+    <circle cx="150" cy="160" r="3" fill="#e63946"/>
+  </g>
+
+  <!-- Circuit traces (right side) -->
+  <g stroke="#ff6b35" stroke-width="1" fill="none" opacity="0.25">
+    <path d="M 870 80 L 820 80 L 800 60 L 740 60"/>
+    <path d="M 870 100 L 840 100 L 820 120 L 760 120"/>
+    <path d="M 870 140 L 810 140 L 790 160 L 750 160"/>
+    <circle cx="740" cy="60" r="3" fill="#ff6b35"/>
+    <circle cx="760" cy="120" r="3" fill="#ff6b35"/>
+    <circle cx="750" cy="160" r="3" fill="#ff6b35"/>
+  </g>
+
+  <!-- Hexagonal node cluster (left) -->
+  <g transform="translate(120, 200)" opacity="0.2" stroke="#e63946" fill="none" stroke-width="0.8">
+    <polygon points="0,-12 10,-6 10,6 0,12 -10,6 -10,-6"/>
+    <polygon points="22,-12 32,-6 32,6 22,12 12,6 12,-6"/>
+    <polygon points="11,9 21,15 21,27 11,33 1,27 1,15"/>
+  </g>
+
+  <!-- Hexagonal node cluster (right) -->
+  <g transform="translate(750, 200)" opacity="0.2" stroke="#ff6b35" fill="none" stroke-width="0.8">
+    <polygon points="0,-12 10,-6 10,6 0,12 -10,6 -10,-6"/>
+    <polygon points="-22,-12 -12,-6 -12,6 -22,12 -32,6 -32,-6"/>
+    <polygon points="-11,9 -1,15 -1,27 -11,33 -21,27 -21,15"/>
+  </g>
+
+  <!-- Data stream particles -->
+  <g fill="#ff6b35" opacity="0.4">
+    <circle cx="200" cy="90" r="1.5"/>
+    <circle cx="230" cy="75" r="1"/>
+    <circle cx="260" cy="95" r="1.5"/>
+    <circle cx="290" cy="70" r="1"/>
+    <circle cx="610" cy="85" r="1.5"/>
+    <circle cx="640" cy="95" r="1"/>
+    <circle cx="670" cy="75" r="1.5"/>
+    <circle cx="700" cy="90" r="1"/>
+  </g>
+
+  <!-- Horizontal accent line -->
+  <line x1="200" y1="175" x2="700" y2="175" stroke="url(#glow)" stroke-width="1" opacity="0.6"/>
+  <circle cx="200" cy="175" r="2" fill="#e63946" opacity="0.8"/>
+  <circle cx="700" cy="175" r="2" fill="#e63946" opacity="0.8"/>
+
+  <!-- Main title -->
+  <text x="450" y="110" text-anchor="middle" font-family="monospace, 'Courier New'" font-size="48" font-weight="bold" fill="#ffffff" filter="url(#textGlow)" letter-spacing="4">
+    IOSwarm Agent
+  </text>
+
+  <!-- Subtitle -->
+  <text x="450" y="150" text-anchor="middle" font-family="monospace, 'Courier New'" font-size="16" fill="#e63946" filter="url(#softGlow)" letter-spacing="6" opacity="0.9">
+    DECENTRALIZED TRANSACTION VALIDATION
+  </text>
+
+  <!-- Bottom tagline -->
+  <text x="450" y="245" text-anchor="middle" font-family="monospace, 'Courier New'" font-size="12" fill="#8888aa" letter-spacing="3">
+    L1 · L2 · L3 · L4  ///  IoTeX Network  ///  EVM Execution  ///  On-Chain Rewards
+  </text>
+
+  <!-- Corner brackets (top-left) -->
+  <g stroke="#e63946" stroke-width="1.5" fill="none" opacity="0.4">
+    <path d="M 15 30 L 15 15 L 30 15"/>
+    <path d="M 870 15 L 885 15 L 885 30"/>
+    <path d="M 15 270 L 15 285 L 30 285"/>
+    <path d="M 870 285 L 885 285 L 885 270"/>
+  </g>
+
+  <!-- Scan line effect -->
+  <rect x="0" y="0" width="900" height="300" fill="none" stroke="#e63946" stroke-width="0.3" opacity="0.1"/>
+</svg>

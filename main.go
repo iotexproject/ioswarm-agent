@@ -15,6 +15,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var version = "dev"
+
 // gRPC service/method constants (match coordinator's service descriptor).
 const (
 	methodRegister      = "/ioswarm.IOSwarm/Register"
@@ -199,7 +201,7 @@ func register(ctx context.Context, conn *grpc.ClientConn, agentID, level, region
 		AgentID:       agentID,
 		Capability:    parseLevel(level),
 		Region:        region,
-		Version:       "0.2.0",
+		Version:       version,
 		WalletAddress: wallet,
 	}
 	resp := &registerResponse{}

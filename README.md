@@ -1,6 +1,21 @@
-# ioswarm-agent
+<p align="center">
+  <img src=".github/banner.svg" alt="IOSwarm Agent" width="900"/>
+</p>
 
-IOSwarm agent node for the IoTeX network. Connects to a delegate's coordinator, receives pending transactions, validates them at configurable levels (L1-L4), and earns IOTX rewards.
+<p align="center">
+  <a href="https://github.com/iotexproject/ioswarm-agent/actions/workflows/ci.yml"><img src="https://github.com/iotexproject/ioswarm-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/iotexproject/ioswarm-agent/releases/latest"><img src="https://img.shields.io/github/v/release/iotexproject/ioswarm-agent?color=e63946" alt="Release"></a>
+  <a href="https://hub.docker.com/r/raullen/ioswarm-agent"><img src="https://img.shields.io/docker/pulls/raullen/ioswarm-agent?color=ff6b35" alt="Docker Pulls"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License"></a>
+  <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.23-00ADD8?logo=go&logoColor=white" alt="Go"></a>
+</p>
+
+<p align="center">
+  <b>Decentralized transaction validation node for the IoTeX network.</b><br/>
+  Connects to a delegate coordinator, validates transactions at L1–L4, earns IOTX rewards on-chain.
+</p>
+
+---
 
 **Production status** (March 2026): L4 agents running on IoTeX mainnet with **100% shadow accuracy**, on-chain reward settlement verified end-to-end.
 
