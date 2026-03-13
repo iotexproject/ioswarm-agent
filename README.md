@@ -86,7 +86,34 @@ Check logs:
 docker logs -f ioswarm-agent
 ```
 
-**Option B: Build from source (requires Go 1.23+)**
+**Option B: Pre-built binary (no Docker, no Go)**
+
+Download the binary for your platform from the [latest release](https://github.com/iotexproject/ioswarm-agent/releases/latest):
+
+| Platform | Binary |
+|----------|--------|
+| Linux (x86_64) | `ioswarm-agent-linux-amd64` |
+| Linux (ARM64, Raspberry Pi) | `ioswarm-agent-linux-arm64` |
+| macOS (Apple Silicon M1/M2/M3) | `ioswarm-agent-darwin-arm64` |
+| macOS (Intel) | `ioswarm-agent-darwin-amd64` |
+| Windows (x86_64) | `ioswarm-agent-windows-amd64.exe` |
+
+```bash
+# Example: Linux x86_64
+curl -L -o ioswarm-agent https://github.com/iotexproject/ioswarm-agent/releases/latest/download/ioswarm-agent-linux-amd64
+chmod +x ioswarm-agent
+
+./ioswarm-agent \
+  --coordinator=<delegate-ip>:14689 \
+  --agent-id=<your-id> \
+  --api-key=iosw_<your-key> \
+  --level=L4 \
+  --snapshot=./acctcode.snap.gz \
+  --datadir=./l4state \
+  --wallet=<your-iotx-address>
+```
+
+**Option C: Build from source (requires Go 1.23+)**
 
 ```bash
 git clone https://github.com/iotexproject/ioswarm-agent.git
