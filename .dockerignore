@@ -1,0 +1,5 @@
+*.snap.gz
+*.snap
+l4state/
+ioswarm-agent
+.git
