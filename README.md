@@ -33,7 +33,7 @@ IOSwarm agent node for the IoTeX network. Connects to a delegate's coordinator, 
 
 | Delegate | Coordinator | Snapshot | Status |
 |----------|------------|----------|--------|
-| **goodwell** | `178.62.196.98:14689` | [ts.iotex.me](https://ts.iotex.me) | Active |
+| **goodwell** | `delegate.goodwillclaw.com:14689` | [ts.iotex.me](https://ts.iotex.me) | Active |
 
 Want to add your delegate? See the [Coordinator README](https://github.com/iotexproject/iotex-core/tree/ioswarm-v2.3.5/ioswarm) for setup instructions.
 
@@ -58,7 +58,7 @@ This is a compressed copy of the IoTeX mainnet state. You only need it for the f
 ### 2. Get your credentials
 
 Contact the delegate operator to get:
-- **Coordinator address** (e.g., `178.62.196.98:14689`)
+- **Coordinator address** (e.g., `delegate.goodwillclaw.com:14689`)
 - **Agent ID** (e.g., `agent-01`)
 - **API key** (`iosw_...` format)
 
@@ -73,7 +73,7 @@ docker run -d --name ioswarm-agent --restart=always \
   -v $(pwd)/acctcode.snap.gz:/data/acctcode.snap.gz \
   -v $(pwd)/l4state:/data/l4state \
   raullen/ioswarm-agent:latest \
-  --coordinator=178.62.196.98:14689 \
+  --coordinator=delegate.goodwillclaw.com:14689 \
   --agent-id=<your-id> \
   --api-key=iosw_<your-key> \
   --level=L4 \
@@ -105,7 +105,7 @@ curl -L -o ioswarm-agent https://github.com/iotexproject/ioswarm-agent/releases/
 chmod +x ioswarm-agent
 
 ./ioswarm-agent \
-  --coordinator=178.62.196.98:14689 \
+  --coordinator=delegate.goodwillclaw.com:14689 \
   --agent-id=<your-id> \
   --api-key=iosw_<your-key> \
   --level=L4 \
@@ -122,7 +122,7 @@ cd ioswarm-agent
 go build -o ioswarm-agent .
 
 ./ioswarm-agent \
-  --coordinator=178.62.196.98:14689 \
+  --coordinator=delegate.goodwillclaw.com:14689 \
   --agent-id=<your-id> \
   --api-key=iosw_<your-key> \
   --level=L4 \
@@ -149,7 +149,7 @@ docker run --rm raullen/ioswarm-agent:latest keygen
 
 ```bash
 nohup ./ioswarm-agent \
-  --coordinator=178.62.196.98:14689 \
+  --coordinator=delegate.goodwillclaw.com:14689 \
   --agent-id=<your-id> \
   --api-key=iosw_<your-key> \
   --level=L4 \
