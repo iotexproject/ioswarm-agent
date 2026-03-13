@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"flag"
 	"fmt"
 	"math/big"
@@ -169,17 +168,3 @@ func iotxToWei(iotx float64) *big.Int {
 	return wei
 }
 
-// generateWallets generates N Ethereum wallets, returning (addresses, privateKeys).
-func generateWallets(n int) ([]common.Address, []*ecdsa.PrivateKey, error) {
-	addrs := make([]common.Address, n)
-	keys := make([]*ecdsa.PrivateKey, n)
-	for i := 0; i < n; i++ {
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			return nil, nil, fmt.Errorf("generate key %d: %w", i, err)
-		}
-		keys[i] = key
-		addrs[i] = crypto.PubkeyToAddress(key.PublicKey)
-	}
-	return addrs, keys, nil
-}

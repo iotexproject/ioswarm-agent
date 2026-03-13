@@ -76,7 +76,7 @@
   <line x1="220" y1="122" x2="580" y2="122" stroke="url(#glow)" stroke-width="0.6" opacity="0.4"/>
 
   <!-- Title -->
-  <text x="400" y="82" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="56" font-weight="bold" fill="#ffffff" filter="url(#textGlow)" letter-spacing="4">IOSwarm</text>
+  <text x="400" y="82" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="56" font-weight="bold" fill="#ffffff" filter="url(#textGlow)" letter-spacing="4">ioSwarm</text>
 
   <!-- Subtitle -->
   <text x="400" y="112" text-anchor="middle" font-family="'SF Mono','Fira Code',monospace" font-size="18" fill="#e63946" filter="url(#softGlow)" letter-spacing="6" opacity="0.9">DISTRIBUTED EXECUTION LAYER</text>

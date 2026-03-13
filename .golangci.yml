@@ -1,0 +1,25 @@
+linters:
+  enable:
+    - errcheck
+    - staticcheck
+    - unused
+  disable:
+    - depguard
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (*flag.FlagSet).Parse
+      - (*go.uber.org/zap.Logger).Sync
+      - (google.golang.org/grpc.ClientStream).CloseSend
+      - encoding/binary.Write
+      - (*compress/gzip.Writer).Write
+      - crypto/rand.Read
+  staticcheck:
+    checks: ["all", "-SA1019"]
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

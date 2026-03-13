@@ -193,7 +193,7 @@ func (s *StateStore) GetStorageSlot(addrHash []byte, slot []byte) ([]byte, error
 // Stats returns basic stats about the store.
 func (s *StateStore) Stats() map[string]int {
 	stats := make(map[string]int)
-	s.db.View(func(tx *bolt.Tx) error {
+	_ = s.db.View(func(tx *bolt.Tx) error {
 		for _, ns := range []string{nsAccount, nsCode, nsContract} {
 			b := tx.Bucket([]byte(ns))
 			if b != nil {

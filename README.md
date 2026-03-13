@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/banner.svg" alt="IOSwarm Agent" width="900"/>
+  <img src=".github/banner.svg" alt="ioSwarm Agent" width="900"/>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 ```
 ┌──────────────────────────┐         ┌───────────────────────────────┐
 │   IoTeX Delegate Node    │  gRPC   │        ioswarm-agent          │
-│   (iotex-core + IOSwarm) │◄───────►│                               │
+│   (iotex-core + ioSwarm) │◄───────►│                               │
 │                          │         │  1. Register with coordinator │
 │  Coordinator:            │         │  2. Stream task batches       │
 │  • dispatches tx batches │         │  3. Validate L1/L2/L3/L4     │
@@ -518,9 +518,9 @@ docker pull raullen/ioswarm-agent:latest
 | Repository | Description |
 |------------|-------------|
 | [`raullen/ioswarm-agent`](https://hub.docker.com/r/raullen/ioswarm-agent) | Docker image (multi-platform: amd64 + arm64) |
-| [iotex-core](https://github.com/iotexproject/iotex-core) (branch: `ioswarm-v2.3.5`) | Delegate node with IOSwarm coordinator |
+| [iotex-core](https://github.com/iotexproject/iotex-core) (branch: `ioswarm-v2.3.5`) | Delegate node with ioSwarm coordinator |
 | [ioswarm-portal](https://github.com/iotexproject/ioswarm-portal) | Dashboard and monitoring UI |
-| [IIP-58](https://github.com/iotexproject/iips/pull/64) | IOSwarm protocol specification |
+| [IIP-58](https://github.com/iotexproject/iips/pull/64) | ioSwarm protocol specification |
 
 ## License
 
