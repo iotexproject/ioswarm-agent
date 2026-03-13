@@ -90,7 +90,7 @@ Or use `launchd` (macOS) / `systemd` (Linux) for auto-restart.
 | `--coordinator` | `127.0.0.1:14689` | Coordinator gRPC address |
 | `--agent-id` | _(required)_ | Unique agent identifier |
 | `--api-key` | | HMAC API key (`iosw_...`) |
-| `--level` | `L2` | Task level: L1, L2, L3, L4 |
+| `--level` | `L3` | Task level: L1, L2, L3, L4 |
 | `--region` | `default` | Region label |
 | `--wallet` | | IOTX wallet address for rewards |
 | `--datadir` | | Data directory for L4 state store |

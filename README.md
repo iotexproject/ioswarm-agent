@@ -167,7 +167,7 @@ Or use `systemd` (Linux) / `launchd` (macOS) for auto-restart.
 | `--coordinator` | `IOSWARM_COORDINATOR` | `127.0.0.1:14689` | Coordinator gRPC address |
 | `--agent-id` | `IOSWARM_AGENT_ID` | *(required)* | Unique agent identifier |
 | `--api-key` | `IOSWARM_API_KEY` | | HMAC authentication key |
-| `--level` | | `L2` | Validation level: `L1`, `L2`, `L3`, `L4` |
+| `--level` | | `L3` | Validation level: `L1`, `L2`, `L3`, `L4` |
 | `--snapshot` | | | Path to IOSWSNAP file for L4 bootstrap |
 | `--datadir` | `IOSWARM_DATADIR` | `/tmp/ioswarm` | Directory for L4 BoltDB state |
 | `--region` | | `default` | Region label for task routing |

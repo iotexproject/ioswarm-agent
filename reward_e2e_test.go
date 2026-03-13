@@ -45,7 +45,10 @@ const extendedRewardPoolABI = `[
 	{"inputs":[],"name":"totalWeight","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[],"name":"cumulativeRewardPerWeight","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
 	{"inputs":[{"internalType":"address","name":"agent","type":"address"}],"name":"agents","outputs":[{"internalType":"uint256","name":"weight","type":"uint256"},{"internalType":"uint256","name":"rewardSnapshot","type":"uint256"},{"internalType":"uint256","name":"pending","type":"uint256"}],"stateMutability":"view","type":"function"},
-	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"}],"name":"depositAndSettle","outputs":[],"stateMutability":"payable","type":"function"}
+	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"}],"name":"depositAndSettle","outputs":[],"stateMutability":"payable","type":"function"},
+	{"inputs":[{"internalType":"address","name":"agent","type":"address"}],"name":"claimFor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+	{"inputs":[{"internalType":"address[]","name":"agentList","type":"address[]"}],"name":"batchClaimFor","outputs":[],"stateMutability":"nonpayable","type":"function"},
+	{"inputs":[{"internalType":"address[]","name":"_agents","type":"address[]"},{"internalType":"uint256[]","name":"_weights","type":"uint256[]"},{"internalType":"address[]","name":"_claimees","type":"address[]"}],"name":"depositSettleAndClaim","outputs":[],"stateMutability":"payable","type":"function"}
 ]`
 
 type testEnv struct {

@@ -25,8 +25,8 @@ const (
 	iotexTestnetChainID = 4690
 )
 
-// Minimal ABI for AgentRewardPool (claim + claimable only)
-const rewardPoolABI = `[{"inputs":[],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"agent","type":"address"}],"name":"claimable","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
+// Minimal ABI for AgentRewardPool v2 (claim + claimFor + claimable)
+const rewardPoolABI = `[{"inputs":[],"name":"claim","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"agent","type":"address"}],"name":"claimFor","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"agent","type":"address"}],"name":"claimable","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 
 func runClaim(args []string) {
 	fs := flag.NewFlagSet("claim", flag.ExitOnError)

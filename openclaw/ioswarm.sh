@@ -173,7 +173,7 @@ EOF
     log "  Agent ID:  ${agent_id}"
     log "  Wallet:    ${wallet_addr}"
     log "  Delegate:  ${delegate_addr}"
-    log "  Level:     L2 (signature + nonce verification)"
+    log "  Level:     L3 (full EVM execution)"
     echo ""
     log "Start earning: $0 start"
     echo ""
@@ -197,7 +197,7 @@ cmd_start() {
     local cmd=("$AGENT_BIN"
         "--coordinator=$IOSWARM_COORDINATOR"
         "--agent-id=$IOSWARM_AGENT_ID"
-        "--level=${IOSWARM_LEVEL:-L2}"
+        "--level=${IOSWARM_LEVEL:-L3}"
         "--region=${IOSWARM_REGION:-default}"
     )
 

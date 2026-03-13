@@ -61,7 +61,7 @@ func main() {
 	coordinator := flag.String("coordinator", "127.0.0.1:14689", "coordinator gRPC address")
 	apiKey := flag.String("api-key", "", "HMAC API key (iosw_...)")
 	agentID := flag.String("agent-id", "", "agent ID (extracted from api-key context, or set manually)")
-	level := flag.String("level", "L2", "task level: L1, L2, L3, L4")
+	level := flag.String("level", "L3", "task level: L1, L2, L3, L4")
 	region := flag.String("region", "default", "region label")
 	wallet := flag.String("wallet", "", "IOTX wallet address for rewards")
 	tlsCert := flag.String("tls-cert", "", "path to TLS certificate (optional)")
