@@ -29,6 +29,14 @@ IOSwarm agent node for the IoTeX network. Connects to a delegate's coordinator, 
                                      └───────────────────────────────┘
 ```
 
+## Supported Delegates
+
+| Delegate | Coordinator | Snapshot | Status |
+|----------|------------|----------|--------|
+| **goodwell** | `swarm.iotex.me:14689` | [ts.iotex.me](https://ts.iotex.me) | Active |
+
+Want to add your delegate? See the [Coordinator README](https://github.com/iotexproject/iotex-core/tree/ioswarm-v2.3.5/ioswarm) for setup instructions.
+
 ## Quick Start
 
 ### Prerequisites
