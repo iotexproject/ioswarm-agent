@@ -67,7 +67,7 @@ func main() {
 	region := flag.String("region", "default", "region label")
 	wallet := flag.String("wallet", "", "IOTX wallet address for rewards")
 	tlsCert := flag.String("tls-cert", "", "path to TLS certificate (optional)")
-	useTLS := flag.Bool("tls", false, "use system TLS (for Cloudflare Tunnel / port 443)")
+	useTLS := flag.Bool("tls", true, "use system TLS for coordinator connection (disable with --tls=false for local dev)")
 	dataDir := flag.String("datadir", "", "data directory for L4 state store (required for L4)")
 	snapshot := flag.String("snapshot", "", "path to IOSWSNAP file for bootstrap (L4 only)")
 	flag.Parse()
