@@ -57,6 +57,9 @@ func main() {
 		case "service":
 			runService(os.Args[2:])
 			return
+		case "llm":
+			runLLMProxy(os.Args[2:])
+			return
 		}
 	}
 
@@ -70,6 +73,8 @@ func main() {
 	useTLS := flag.Bool("tls", true, "use system TLS for coordinator connection (disable with --tls=false for local dev)")
 	dataDir := flag.String("datadir", "", "data directory for L4 state store (required for L4)")
 	snapshot := flag.String("snapshot", "", "path to IOSWSNAP file for bootstrap (L4 only)")
+	mode := flag.String("mode", "validator", "run mode: validator, llm, both")
+	llmPort := flag.Int("llm-port", 8082, "LLM proxy port (used in llm/both mode)")
 	flag.Parse()
 
 	// Also check env vars as fallback
@@ -92,6 +97,14 @@ func main() {
 		*dataDir = os.Getenv("IOSWARM_DATADIR")
 	}
 
+	// LLM-only mode: no coordinator needed
+	runMode := strings.ToLower(*mode)
+	if runMode == "llm" {
+		fmt.Println("🐝 ioSwarm Agent — LLM proxy mode")
+		startLLMProxy(*llmPort)
+		return
+	}
+
 	if *agentID == "" {
 		fmt.Fprintf(os.Stderr, "error: --agent-id is required\n")
 		os.Exit(1)
@@ -105,11 +118,20 @@ func main() {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
+	// "both" mode: start LLM proxy in background alongside validator
+	if runMode == "both" {
+		go func() {
+			logger.Info("starting LLM proxy", zap.Int("port", *llmPort))
+			startLLMProxy(*llmPort)
+		}()
+	}
+
 	logger.Info("starting ioswarm-agent",
 		zap.String("coordinator", *coordinator),
 		zap.String("agent_id", *agentID),
 		zap.String("level", *level),
 		zap.String("region", *region),
+		zap.String("mode", runMode),
 		zap.Bool("auth", *apiKey != ""))
 
 	// Auto-enable TLS when connecting to port 443
