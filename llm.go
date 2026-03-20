@@ -56,9 +56,21 @@ var anthropicModelMap = map[string]string{
 	"claude-sonnet-4.6": "claude-sonnet-4-20250514",
 }
 
+func getClaudeKey() string {
+	// 1. Check env var first (API key mode)
+	if key := os.Getenv("ANTHROPIC_API_KEY"); key != "" {
+		return key
+	}
+	// 2. Check saved OAuth token (subscription mode)
+	if token, err := loadToken(); err == nil && token.AccessToken != "" {
+		return token.AccessToken
+	}
+	return ""
+}
+
 func detectModels() []string {
 	var models []string
-	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+	if getClaudeKey() != "" {
 		models = append(models, "claude-opus-4.6", "claude-sonnet-4.6")
 	}
 	if os.Getenv("GEMINI_API_KEY") != "" {
@@ -80,7 +92,7 @@ func truncate(s string, n int) string {
 // ========================== Providers ==========================
 
 func callAnthropic(model string, messages []llmMessage) (string, error) {
-	key := os.Getenv("ANTHROPIC_API_KEY")
+	key := getClaudeKey()
 	realModel := anthropicModelMap[model]
 	if realModel == "" {
 		realModel = model
@@ -226,7 +238,7 @@ func callOpenAI(model string, messages []llmMessage) (string, error) {
 
 func routeLLM(model string, messages []llmMessage) (string, error) {
 	switch {
-	case strings.HasPrefix(model, "claude") && os.Getenv("ANTHROPIC_API_KEY") != "":
+	case strings.HasPrefix(model, "claude") && getClaudeKey() != "":
 		return callAnthropic(model, messages)
 	case strings.HasPrefix(model, "gemini") && os.Getenv("GEMINI_API_KEY") != "":
 		return callGemini(model, messages)
@@ -312,7 +324,15 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 func startLLMProxy(port int) {
 	models := detectModels()
 	if len(models) == 0 {
-		fmt.Fprintln(os.Stderr, "No LLM keys found. Set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY.")
+		fmt.Fprintln(os.Stderr, "No LLM keys found.")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Option 1: Login with Claude subscription (recommended):")
+		fmt.Fprintln(os.Stderr, "  ioswarm-agent llm setup")
+		fmt.Fprintln(os.Stderr, "")
+		fmt.Fprintln(os.Stderr, "Option 2: Set API key via environment variable:")
+		fmt.Fprintln(os.Stderr, "  ANTHROPIC_API_KEY=sk-xxx ioswarm-agent --mode llm")
+		fmt.Fprintln(os.Stderr, "  GEMINI_API_KEY=xxx ioswarm-agent --mode llm")
+		fmt.Fprintln(os.Stderr, "  OPENAI_API_KEY=sk-xxx ioswarm-agent --mode llm")
 		return
 	}
 

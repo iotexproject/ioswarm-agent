@@ -58,6 +58,11 @@ func main() {
 			runService(os.Args[2:])
 			return
 		case "llm":
+			// "llm setup" subcommand for OAuth login
+			if len(os.Args) > 2 && os.Args[2] == "setup" {
+				runLLMSetup()
+				return
+			}
 			runLLMProxy(os.Args[2:])
 			return
 		}
