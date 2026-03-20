@@ -459,11 +459,67 @@ rm -rf ./l4state
 ### "error: --datadir is required for L4 mode"
 L4 mode requires a data directory for the state store. Add `--datadir=./l4state`.
 
+## LLM Proxy (ClawHive)
+
+ioswarm-agent can also serve as an OpenAI-compatible LLM proxy, letting you earn by sharing your AI subscription's idle capacity through the [ClawHive](https://clawhive.io) network.
+
+### Quick Start
+
+```bash
+# Step 1: Login to Claude (browser opens, click to authenticate)
+ioswarm-agent llm setup
+
+# Step 2: Start LLM proxy
+ioswarm-agent --mode llm
+
+# Or run both validator + LLM proxy
+ioswarm-agent --mode both --agent-id=<your-id> --api-key=iosw_<key> --wallet=<addr>
+```
+
+### Run Modes
+
+| Flag | Behavior |
+|------|----------|
+| `--mode validator` | Default. Blockchain validation only. Existing behavior unchanged. |
+| `--mode llm` | LLM proxy only. No coordinator needed. |
+| `--mode both` | Validator + LLM proxy in parallel. |
+| `--llm-port` | LLM proxy port (default: 8082) |
+
+### Supported Models
+
+| Provider | Models | Auth |
+|----------|--------|------|
+| Claude (Anthropic) | Opus 4.6, Sonnet 4.6 | `llm setup` (OAuth) or `ANTHROPIC_API_KEY` |
+| Gemini (Google) | 2.0 Flash, 1.5 Flash | `GEMINI_API_KEY` |
+| GPT (OpenAI) | 4o | `OPENAI_API_KEY` |
+
+### How It Works
+
+```
+ClawHive Gateway ──HTTP──► ioswarm-agent (--mode llm)
+                               │
+                               ├─► Claude API (using local OAuth token)
+                               ├─► Gemini API (using local API key)
+                               └─► OpenAI API (using local API key)
+
+Tokens never leave your machine. The gateway only knows your endpoint, not your keys.
+```
+
+### CLI Flags (LLM)
+
+| Flag | Env Var | Default | Description |
+|------|---------|---------|-------------|
+| `--mode` | | `validator` | Run mode: `validator`, `llm`, `both` |
+| `--llm-port` | | `8082` | Port for LLM proxy HTTP server |
+| | `ANTHROPIC_API_KEY` | | Anthropic API key (alternative to OAuth) |
+| | `GEMINI_API_KEY` | | Google Gemini API key |
+| | `OPENAI_API_KEY` | | OpenAI API key |
+
 ## Project Structure
 
 ```
 ioswarm-agent/
-├── main.go          # Entry point, gRPC client, task streaming
+├── main.go          # Entry point, gRPC client, task streaming, mode selection
 ├── validator.go     # L1/L2/L3/L4 transaction validation
 ├── evm.go           # EVM execution engine (L3/L4)
 ├── statedb.go       # In-memory state database for EVM (with L4 local store fallback)
@@ -475,6 +531,8 @@ ioswarm-agent/
 ├── types.go         # gRPC message types (protobuf-compatible)
 ├── codec.go         # Custom gRPC codec (raw protobuf)
 ├── client.go        # gRPC dialer with auth interceptor
+├── llm.go           # LLM proxy server (OpenAI-compatible)
+├── llm_setup.go     # Claude OAuth login flow
 ├── claim.go         # `claim` subcommand
 ├── deploy.go        # `deploy` subcommand
 ├── fund.go          # `fund` subcommand

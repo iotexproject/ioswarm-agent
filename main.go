@@ -136,7 +136,7 @@ func main() {
 		zap.String("agent_id", *agentID),
 		zap.String("level", *level),
 		zap.String("region", *region),
-		zap.String("mode", runMode),
+		zap.String("mode", *mode),
 		zap.Bool("auth", *apiKey != ""))
 
 	// Auto-enable TLS when connecting to port 443
