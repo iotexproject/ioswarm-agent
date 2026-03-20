@@ -54,6 +54,7 @@ var llmClient = &http.Client{Timeout: 60 * time.Second}
 var anthropicModelMap = map[string]string{
 	"claude-opus-4.6":   "claude-opus-4-20250514",
 	"claude-sonnet-4.6": "claude-sonnet-4-20250514",
+	"claude-haiku-4.5":  "claude-haiku-4-5-20251001",
 }
 
 func getClaudeKey() string {
@@ -71,7 +72,7 @@ func getClaudeKey() string {
 func detectModels() []string {
 	var models []string
 	if getClaudeKey() != "" {
-		models = append(models, "claude-opus-4.6", "claude-sonnet-4.6")
+		models = append(models, "claude-opus-4.6", "claude-sonnet-4.6", "claude-haiku-4.5")
 	}
 	if os.Getenv("GEMINI_API_KEY") != "" {
 		models = append(models, "gemini-2.0-flash", "gemini-1.5-flash")
@@ -90,6 +91,13 @@ func truncate(s string, n int) string {
 }
 
 // ========================== Providers ==========================
+
+func isOAuthToken(key string) bool {
+	// OAuth tokens from llm setup start differently than API keys
+	// API key: sk-ant-api03-xxx
+	// OAuth:   starts with something else, or loaded from token file
+	return !strings.HasPrefix(key, "sk-ant-api")
+}
 
 func callAnthropic(model string, messages []llmMessage) (string, error) {
 	key := getClaudeKey()
@@ -122,7 +130,18 @@ func callAnthropic(model string, messages []llmMessage) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("x-api-key", key)
+
+	if isOAuthToken(key) {
+		// OAuth token: use Bearer auth + Claude Code headers (like sub2api)
+		req.Header.Set("authorization", "Bearer "+key)
+		req.Header.Set("anthropic-beta", "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14")
+		req.Header.Set("user-agent", "claude-cli/2.1.22 (external, cli)")
+		req.Header.Set("x-app", "cli")
+		req.Header.Set("anthropic-dangerous-direct-browser-access", "true")
+	} else {
+		// API key: use x-api-key header
+		req.Header.Set("x-api-key", key)
+	}
 	req.Header.Set("anthropic-version", "2023-06-01")
 	req.Header.Set("content-type", "application/json")
 

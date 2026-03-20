@@ -176,17 +176,25 @@ func runClaudeOAuth() (*claudeToken, error) {
 		return nil, fmt.Errorf("authentication timed out (5 min)")
 	}
 
-	// Exchange code for tokens
+	// Exchange code for tokens (must be JSON with state field)
 	fmt.Println("Exchanging code for tokens...")
-	tokenParams := url.Values{
-		"grant_type":    {"authorization_code"},
-		"client_id":     {claudeClientID},
-		"code":          {code},
-		"redirect_uri":  {claudeRedirect},
-		"code_verifier": {pkce.Verifier},
+	tokenBody := map[string]interface{}{
+		"grant_type":    "authorization_code",
+		"client_id":     claudeClientID,
+		"code":          code,
+		"state":         state,
+		"redirect_uri":  claudeRedirect,
+		"code_verifier": pkce.Verifier,
 	}
+	tokenJSON, _ := json.Marshal(tokenBody)
+	fmt.Printf("  Token request body: %s\n", string(tokenJSON))
 
-	resp, err := http.Post(claudeTokenURL, "application/x-www-form-urlencoded", strings.NewReader(tokenParams.Encode()))
+	tokenReq, _ := http.NewRequest("POST", claudeTokenURL, strings.NewReader(string(tokenJSON)))
+	tokenReq.Header.Set("Content-Type", "application/json")
+	tokenReq.Header.Set("Accept", "application/json")
+	tokenReq.Header.Set("User-Agent", "claude-cli/2.1.22 (external, cli)")
+
+	resp, err := http.DefaultClient.Do(tokenReq)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %w", err)
 	}
