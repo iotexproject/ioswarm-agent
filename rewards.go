@@ -19,10 +19,9 @@ type rewardEntry struct {
 }
 
 type rewardsResponse struct {
-	AgentID      string        `json:"agent_id"`
-	CurrentEpoch interface{}   `json:"current_epoch"`
-	History      []rewardEntry `json:"history"`
-	Totals       struct {
+	AgentID string        `json:"agent_id"`
+	History []rewardEntry `json:"history"`
+	Totals  struct {
 		EarnedIOTX  float64 `json:"earned_iotx"`
 		TotalTasks  uint64  `json:"total_tasks"`
 		AvgAccuracy float64 `json:"avg_accuracy"`

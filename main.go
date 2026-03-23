@@ -158,21 +158,30 @@ func main() {
 		cancel()
 	}()
 
-	// Multi-delegate support: split comma-separated coordinators
+	// Multi-delegate support: split comma-separated coordinators and API keys
 	coordinators := strings.Split(*coordinator, ",")
+	apiKeys := strings.Split(*apiKey, ",")
 	for i := range coordinators {
 		coordinators[i] = strings.TrimSpace(coordinators[i])
+	}
+	for i := range apiKeys {
+		apiKeys[i] = strings.TrimSpace(apiKeys[i])
 	}
 
 	var wg sync.WaitGroup
 	for idx, coord := range coordinators {
 		coord := coord
+		// Use per-coordinator API key if provided, otherwise use the single key for all
+		key := *apiKey
+		if idx < len(apiKeys) && len(apiKeys) > 1 {
+			key = apiKeys[idx]
+		}
 		wlog := logger.With(zap.String("coordinator", coord), zap.Int("worker", idx))
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			runWorker(ctx, coord, *agentID, *apiKey, *level, *region, *wallet,
+			runWorker(ctx, coord, *agentID, key, *level, *region, *wallet,
 				*tlsCert, *useTLS, *dataDir, *snapshot, idx, wlog)
 		}()
 	}
