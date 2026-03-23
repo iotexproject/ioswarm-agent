@@ -53,5 +53,12 @@ func dialCoordinator(addr, agentID, apiKey string, tlsCert string, useTLS bool) 
 		}))
 	}
 
+	// State diff messages can exceed gRPC's default 4MB limit for blocks with
+	// large state changes (contract deployments, batch operations).
+	opts = append(opts, grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(32*1024*1024),
+		grpc.MaxCallSendMsgSize(32*1024*1024),
+	))
+
 	return grpc.NewClient(addr, opts...)
 }
