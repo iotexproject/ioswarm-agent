@@ -46,7 +46,9 @@ func runWorker(
 	go heartbeatLoop(ctx, conn, agentID, hbInterval, logger)
 
 	// L4: state store (per-worker directory to avoid conflicts)
-	if strings.ToUpper(level) == "L4" && dataDir != "" {
+	// NOTE: multi-delegate L4 is not yet safe — activeStateStore is global.
+	// For now, only the first worker (idx=0) initializes L4. Others fall back to L3 task processing.
+	if strings.ToUpper(level) == "L4" && dataDir != "" && workerIdx == 0 {
 		workerDataDir := dataDir
 		if workerIdx > 0 {
 			workerDataDir = fmt.Sprintf("%s/worker-%d", dataDir, workerIdx)
