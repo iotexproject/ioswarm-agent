@@ -7,7 +7,8 @@ import (
 	_ "google.golang.org/grpc/encoding/proto"
 )
 
-// jsonCodec replaces the default "proto" codec with JSON marshaling.
+// jsonCodec provides JSON marshaling for ioswarm internal use.
+// Use a distinct name "ioswarm-json" to avoid overriding the default "proto" codec.
 // Must match the coordinator's codec for interoperability.
 type jsonCodec struct{}
 
@@ -24,5 +25,5 @@ func (jsonCodec) Unmarshal(data []byte, v interface{}) error {
 }
 
 func (jsonCodec) Name() string {
-	return "proto"
+	return "ioswarm-json"
 }
